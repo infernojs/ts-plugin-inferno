@@ -11,6 +11,7 @@ import svgAttributes from './utils/svgAttributes'
 import isNodeNull from './utils/isNodeNull'
 import handleWhiteSpace from './utils/handleWhiteSpace'
 import vNodeTypes from './utils/vNodeTypes'
+import isTargetHigherThanES2015 from "./utils/isTargetHigherThanES2015";
 import updateSourceFile from './updateSourceFile'
 let NULL
 
@@ -26,13 +27,28 @@ const TYPE_ELEMENT = 0
 const TYPE_COMPONENT = 1
 const TYPE_FRAGMENT = 2
 
+export type Mutable<T extends object> = { -readonly [K in keyof T]: T[K] };
+export const POSSIBLE_IMPORTS_TO_ADD = ['createFragment', 'createVNode', 'createComponentVNode', 'createTextVNode', 'normalizeProps'];
+
 export default () => {
   return (context: ts.TransformationContext): ts.Transformer<ts.SourceFile> => {
+    const {factory} = context;
+
     return (sourceFile: ts.SourceFile) => {
       if (sourceFile.isDeclarationFile) {
         return sourceFile
       }
 
+      const importSpecifiers = new Map();
+
+      for (const name of POSSIBLE_IMPORTS_TO_ADD) {
+        importSpecifiers.set(
+            name,
+            factory.createImportSpecifier(undefined, undefined, factory.createIdentifier(name))
+        )
+      }
+
+      context['infernoImportSpecifiers'] = importSpecifiers;
       context['createFragment'] = false
       context['createVNode'] = false
       context['createComponentVNode'] = false
@@ -41,7 +57,68 @@ export default () => {
 
       let newSourceFile = ts.visitEachChild(sourceFile, visitor, context)
 
-      return updateSourceFile(newSourceFile, context)
+      if (isTargetHigherThanES2015(context)) {
+        const specifiersToAdd: ts.ImportSpecifier[] = [];
+
+        for (const name of POSSIBLE_IMPORTS_TO_ADD) {
+          if (context[name]) {
+            specifiersToAdd.push(importSpecifiers.get(name));
+          }
+        }
+
+        let statements = [...newSourceFile.statements];
+        const matchedImportIdx = statements
+            .findIndex(s => ts.isImportDeclaration(s)
+                && (s.moduleSpecifier as ts.StringLiteral).text === 'inferno'
+        );
+
+        // TODO: https://stackoverflow.com/questions/67723545/how-to-update-or-insert-to-import-using-typescript-compiler-api
+        if (specifiersToAdd.length > 0) {
+          if (matchedImportIdx === -1) {
+            const importStatement = factory.createImportDeclaration(
+                undefined,
+                undefined,
+                factory.createImportClause(
+                    false,
+                    undefined,
+                    factory.createNamedImports(specifiersToAdd)
+                ),
+                factory.createStringLiteral('inferno'),
+                undefined
+            );
+            (importStatement as Mutable<ts.ImportDeclaration>).parent = sourceFile;
+            statements.unshift(importStatement);
+          } else {
+            const importStatement = factory.updateImportDeclaration(
+                    (statements[matchedImportIdx] as ts.ImportDeclaration),
+                    (statements[matchedImportIdx] as ts.ImportDeclaration).decorators,
+                (statements[matchedImportIdx] as ts.ImportDeclaration).modifiers,
+                factory.updateImportClause(
+                    (statements[matchedImportIdx] as ts.ImportDeclaration).importClause,
+                    undefined,
+                    undefined,
+                    factory.updateNamedImports(
+                        (statements[matchedImportIdx] as ts.ImportDeclaration).importClause.namedBindings as ts.NamedImports,
+                        [...((statements[matchedImportIdx] as ts.ImportDeclaration).importClause.namedBindings as ts.NamedImports).elements, ...factory.createNamedImports(specifiersToAdd).elements]
+                    )
+                ),
+                (statements[matchedImportIdx] as ts.ImportDeclaration).moduleSpecifier,
+                (statements[matchedImportIdx] as ts.ImportDeclaration).assertClause
+            );
+            (importStatement as Mutable<ts.ImportDeclaration>).parent = sourceFile;
+            statements.splice(matchedImportIdx, 1, importStatement);
+          }
+        }
+
+        return factory.updateSourceFile(newSourceFile, statements);
+      }
+
+
+      return updateSourceFile(newSourceFile, context, factory)
+    }
+
+    function getImportSpecifier(name: 'createFragment' | 'createVNode' | 'createComponentVNode' | 'createTextVNode' | 'normalizeProps'): ts.Expression {
+        return context['infernoImportSpecifiers'].get(name).name;
     }
 
     function visitor(node: ts.Node): ts.VisitResult<ts.Node> {
@@ -67,7 +144,7 @@ export default () => {
              * unescapes HTML entities such as &nbsp; in JSX text that is
              * directly inside an element or a fragment.
              */
-            return ts.createLiteral(
+            return factory.createStringLiteral(
               JSON.parse(
                 ts
                   .transpile(`<>${text}</>`, { jsx: ts.JsxEmit.React })
@@ -94,8 +171,8 @@ export default () => {
         var aChild = vChildren.elements[j]
 
         if (aChild.kind === ts.SyntaxKind.StringLiteral) {
-          vChildren.elements[j] = ts.createCall(
-            ts.createIdentifier('createTextVNode'),
+          vChildren.elements[j] = factory.createCallExpression(
+              getImportSpecifier('createTextVNode'),
             [],
             [aChild]
           )
@@ -112,8 +189,8 @@ export default () => {
         return addCreateTextVNodeCalls(vChildren)
       }
       if (vChildren.kind === ts.SyntaxKind.StringLiteral) {
-        return ts.createCall(
-          ts.createIdentifier('createTextVNode'),
+        return factory.createCallExpression(
+            getImportSpecifier('createTextVNode'),
           [],
           [vChildren]
         )
@@ -136,7 +213,7 @@ export default () => {
         ) {
           args.push(children)
         } else {
-          args.push(ts.createArrayLiteral([children]))
+          args.push(factory.createArrayLiteralExpression([children]))
         }
       } else if (hasChildFlags || hasKey) {
         args.push(NULL)
@@ -145,11 +222,11 @@ export default () => {
       if (hasChildFlags) {
         args.push(
           typeof childFlags === 'number'
-            ? ts.createNumericLiteral(childFlags + '')
+            ? factory.createNumericLiteral(childFlags + '')
             : childFlags
         )
       } else if (hasKey) {
-        args.push(ts.createNumericLiteral(ChildFlags.HasInvalidChildren + ''))
+        args.push(factory.createNumericLiteral(ChildFlags.HasInvalidChildren + ''))
       }
 
       if (hasKey) {
@@ -171,7 +248,7 @@ export default () => {
           childFlags = ChildFlags.HasNonKeyedChildren
         }
         if (childrenResults.hasSingleChild) {
-          vChildren = ts.createArrayLiteral([vChildren])
+          vChildren = factory.createArrayLiteralExpression([vChildren])
         }
       } else {
         childFlags = ChildFlags.UnknownChildren
@@ -183,8 +260,8 @@ export default () => {
 
       context['createFragment'] = true
 
-      return ts.createCall(
-        ts.createIdentifier('createFragment'),
+      return factory.createCallExpression(
+          getImportSpecifier('createFragment'),
         [],
         createFragmentVNodeArgs(vChildren, childFlags)
       )
@@ -219,7 +296,7 @@ export default () => {
 
       let childFlags = ChildFlags.HasInvalidChildren
       let flags = vType.flags
-      let props: any = vProps.props[0] || ts.createObjectLiteral()
+      let props: any = vProps.props[0] || factory.createObjectLiteralExpression()
       let childIndex = -1
       let i = 0
 
@@ -252,7 +329,7 @@ export default () => {
               props.properties.splice(childIndex, 1) // Remove prop children
             }
             props.properties.push(
-              ts.createPropertyAssignment(getName('children'), vChildren)
+              factory.createPropertyAssignment(getName('children'), vChildren)
             )
 
             vProps.props[0] = props
@@ -274,7 +351,7 @@ export default () => {
                 childrenResults.hasSingleChild = true
               }
 
-              vChildren = ts.createLiteral(text)
+              vChildren = factory.createStringLiteral(text)
             }
           } else if (vProps.propChildren.kind === ts.SyntaxKind.JsxExpression) {
             if (
@@ -376,8 +453,8 @@ export default () => {
       let createVNodeCall
 
       if (vType.vNodeType === TYPE_COMPONENT) {
-        createVNodeCall = ts.createCall(
-          ts.createIdentifier('createComponentVNode'),
+        createVNodeCall = factory.createCallExpression(
+            getImportSpecifier('createComponentVNode'),
           [],
           createComponentVNodeArgs(
             flags,
@@ -389,8 +466,8 @@ export default () => {
         )
         context['createComponentVNode'] = true
       } else if (vType.vNodeType === TYPE_ELEMENT) {
-        createVNodeCall = ts.createCall(
-          ts.createIdentifier('createVNode'),
+        createVNodeCall = factory.createCallExpression(
+            getImportSpecifier('createVNode'),
           [],
           createVNodeArgs(
             flags,
@@ -410,10 +487,10 @@ export default () => {
           !childrenResults.requiresNormalization &&
           childrenResults.hasSingleChild
         ) {
-          vChildren = ts.createArrayLiteral([vChildren])
+          vChildren = factory.createArrayLiteralExpression([vChildren])
         }
-        createVNodeCall = ts.createCall(
-          ts.createIdentifier('createFragment'),
+        createVNodeCall = factory.createCallExpression(
+            getImportSpecifier('createFragment'),
           [],
           createFragmentVNodeArgs(vChildren, childFlags, vProps.key)
         )
@@ -423,8 +500,8 @@ export default () => {
       // NormalizeProps will normalizeChildren too
       if (vProps.needsNormalization) {
         context['normalizeProps'] = true
-        createVNodeCall = ts.createCall(
-          ts.createIdentifier('normalizeProps'),
+        createVNodeCall = factory.createCallExpression(
+            getImportSpecifier('normalizeProps'),
           [],
           [createVNodeCall]
         )
@@ -448,7 +525,7 @@ export default () => {
         flags = VNodeFlags.ComponentUnknown
       } else {
         vNodeType = TYPE_ELEMENT
-        type = ts.createLiteral(text)
+        type = factory.createStringLiteral(text)
         flags = vNodeTypes[text] || VNodeFlags.HtmlElement
       }
 
@@ -481,7 +558,7 @@ export default () => {
 
         if (astProp.kind === ts.SyntaxKind.JsxSpreadAttribute) {
           needsNormalization = true
-          assignArgs = [ts.createObjectLiteral(), astProp.expression]
+          assignArgs = [factory.createObjectLiteralExpression(), astProp.expression]
         } else {
           let propName = astProp.name.text
 
@@ -492,25 +569,25 @@ export default () => {
             className = getValue(initializer, visitor)
           } else if (!isComponent && propName === 'htmlFor') {
             props.push(
-              ts.createPropertyAssignment(
+              factory.createPropertyAssignment(
                 getName('for'),
                 getValue(initializer, visitor)
               )
             )
           } else if (!isComponent && propName === 'onDoubleClick') {
             props.push(
-              ts.createPropertyAssignment(
+              factory.createPropertyAssignment(
                 getName('onDblClick'),
                 getValue(initializer, visitor)
               )
             )
           } else if (propName.substr(0, 11) === 'onComponent' && isComponent) {
             if (!ref) {
-              ref = ts.createObjectLiteral([])
+              ref = factory.createObjectLiteralExpression([])
             }
 
             ref.properties.push(
-              ts.createPropertyAssignment(
+              factory.createPropertyAssignment(
                 getName(propName),
                 getValue(initializer, visitor)
               )
@@ -518,7 +595,7 @@ export default () => {
           } else if (!isComponent && propName in svgAttributes) {
             // React compatibility for SVG Attributes
             props.push(
-              ts.createPropertyAssignment(
+              factory.createPropertyAssignment(
                 getName(svgAttributes[propName]),
                 getValue(initializer, visitor)
               )
@@ -574,11 +651,11 @@ export default () => {
                   contentEditable = true
                 }
                 props.push(
-                  ts.createPropertyAssignment(
+                  factory.createPropertyAssignment(
                     getName(propName),
                     initializer
                       ? getValue(initializer, visitor)
-                      : ts.createTrue()
+                      : factory.createTrue()
                   )
                 )
             }
@@ -586,7 +663,7 @@ export default () => {
         }
       }
 
-      if (props.length) assignArgs.push(ts.createObjectLiteral(props))
+      if (props.length) assignArgs.push(factory.createObjectLiteralExpression(props))
 
       return {
         props: assignArgs,
@@ -654,7 +731,7 @@ export default () => {
         parentCanBeKeyed: hasSingleChild === false && parentCanBeKeyed,
         children: hasSingleChild
           ? children[0]
-          : ts.createArrayLiteral(children),
+          : factory.createArrayLiteralExpression(children),
         foundText: foundText,
         parentCanBeNonKeyed:
           !hasSingleChild &&
@@ -671,7 +748,7 @@ export default () => {
       let hasProps = props.length > 0
       let hasKey = !isNodeNull(key)
       let hasRef = !isNodeNull(ref)
-      args.push(ts.createNumericLiteral(flags + ''))
+      args.push(factory.createNumericLiteral(flags + ''))
       args.push(type)
 
       if (hasProps) {
@@ -679,13 +756,13 @@ export default () => {
           ? args.push(props[0])
           : args.push(createAssignHelper(context, props))
       } else if (hasKey || hasRef) {
-        args.push(ts.createNull())
+        args.push(factory.createNull())
       }
 
       if (hasKey) {
         args.push(key)
       } else if (hasRef) {
-        args.push(ts.createNull())
+        args.push(factory.createNull())
       }
 
       if (hasRef) {
@@ -713,29 +790,29 @@ export default () => {
       let hasProps = props.length > 0
       let hasKey = !isNodeNull(key)
       let hasRef = !isNodeNull(ref)
-      args.push(ts.createNumericLiteral(flags + ''))
+      args.push(factory.createNumericLiteral(flags + ''))
       args.push(type)
 
       if (hasClassName) {
         args.push(className)
       } else if (hasChildren || hasChildFlags || hasProps || hasKey || hasRef) {
-        args.push(ts.createNull())
+        args.push(factory.createNull())
       }
 
       if (hasChildren) {
         args.push(children)
       } else if (hasChildFlags || hasProps || hasKey || hasRef) {
-        args.push(ts.createNull())
+        args.push(factory.createNull())
       }
 
       if (hasChildFlags) {
         args.push(
           typeof childFlags === 'number'
-            ? ts.createNumericLiteral(childFlags + '')
+            ? factory.createNumericLiteral(childFlags + '')
             : childFlags
         )
       } else if (hasProps || hasKey || hasRef) {
-        args.push(ts.createNumericLiteral(ChildFlags.HasInvalidChildren + ''))
+        args.push(factory.createNumericLiteral(ChildFlags.HasInvalidChildren + ''))
       }
 
       if (hasProps) {
@@ -743,13 +820,13 @@ export default () => {
           ? args.push(props[0])
           : args.push(createAssignHelper(context, props))
       } else if (hasKey || hasRef) {
-        args.push(ts.createNull())
+        args.push(factory.createNull())
       }
 
       if (hasKey) {
         args.push(key)
       } else if (hasRef) {
-        args.push(ts.createNull())
+        args.push(factory.createNull())
       }
 
       if (hasRef) {

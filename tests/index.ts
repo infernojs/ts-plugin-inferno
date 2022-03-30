@@ -8,13 +8,13 @@ import { mkdirpSync } from 'fs-extra'
 const config = {
   experimentalDecorators: true,
   jsx: ts.JsxEmit.Preserve,
-  module: ts.ModuleKind.UMD,
+  // module: ts.ModuleKind.UMD,
   moduleResolution: ts.ModuleResolutionKind.NodeJs,
   noEmitOnError: false,
   noUnusedLocals: true,
   noUnusedParameters: true,
   stripInternal: true,
-  target: ts.ScriptTarget.ES5,
+  target: ts.ScriptTarget.ES2016,
 }
 
 function compile(path: string, callback) {

@@ -1,12 +1,5 @@
 import * as ts from "typescript";
 
-function getHelperName(name) {
-  return ts.setEmitFlags(
-    ts.createIdentifier(name),
-    ts.EmitFlags.HelperName | ts.EmitFlags.AdviseOnEmitNode
-  );
-}
-
 const assignHelper: ts.EmitHelper = {
   name: "typescript:assign",
   scoped: false,
@@ -26,17 +19,26 @@ export default function createAssignHelper(
   context: ts.TransformationContext,
   attributesSegments: ts.Expression[]
 ) {
+  const {factory} = context;
+
   if (context.getCompilerOptions().target >= ts.ScriptTarget.ES2015) {
-    return ts.createCall(
-      ts.createPropertyAccess(ts.createIdentifier("Object"), "assign"),
+    return factory.createCallExpression(
+      factory.createPropertyAccessExpression(factory.createIdentifier("Object"), "assign"),
       /*typeArguments*/ undefined,
       attributesSegments
     );
   }
   context.requestEmitHelper(assignHelper);
-  return ts.createCall(
+  return factory.createCallExpression(
     getHelperName("__assign"),
     /*typeArguments*/ undefined,
     attributesSegments
   );
+
+  function getHelperName(name) {
+    return ts.setEmitFlags(
+        factory.createIdentifier(name),
+        ts.EmitFlags.HelperName | ts.EmitFlags.AdviseOnEmitNode
+    );
+  }
 }

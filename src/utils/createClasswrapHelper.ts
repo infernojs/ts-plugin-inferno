@@ -1,11 +1,6 @@
 import * as ts from "typescript";
 
-function getHelperName(name) {
-  return ts.setEmitFlags(
-    ts.createIdentifier(name),
-    ts.EmitFlags.HelperName | ts.EmitFlags.AdviseOnEmitNode
-  );
-}
+
 
 const classwrapHelper: ts.EmitHelper = {
   name: "typescript:classwrap",
@@ -48,8 +43,17 @@ export default function createClasswrapHelper(
   context: ts.TransformationContext,
   attributesSegments: ts.Expression[]
 ) {
+  const {factory} = context;
+
+  function getHelperName(name) {
+    return ts.setEmitFlags(
+        factory.createIdentifier(name),
+        ts.EmitFlags.HelperName | ts.EmitFlags.AdviseOnEmitNode
+    );
+  }
+
   context.requestEmitHelper(classwrapHelper);
-  return ts.createCall(
+  return factory.createCallExpression(
     getHelperName("__classwrap"),
     /*typeArguments*/ undefined,
     attributesSegments
