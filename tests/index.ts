@@ -6,15 +6,20 @@ import { readFileSync, writeFileSync } from 'fs'
 import { mkdirpSync } from 'fs-extra'
 
 const config = {
+  ...ts.getDefaultCompilerOptions(),
   experimentalDecorators: true,
   jsx: ts.JsxEmit.Preserve,
   // module: ts.ModuleKind.UMD,
-  moduleResolution: ts.ModuleResolutionKind.NodeJs,
+  // module: ts.ModuleKind.ES2015,
+  // moduleResolution: ts.ModuleResolutionKind.NodeJs,
   noEmitOnError: false,
   noUnusedLocals: true,
   noUnusedParameters: true,
   stripInternal: true,
   target: ts.ScriptTarget.ES2016,
+  compilerOptions: {
+    importsNotUsedAsValues: ['remove'],
+  }
 }
 
 function compile(path: string, callback) {

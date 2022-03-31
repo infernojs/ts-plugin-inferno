@@ -1,13 +1,14 @@
 import * as ts from "typescript";
 
 function createVarStatement(name: string) {
-  return ts.createVariableStatement(undefined, [
-    ts.createVariableDeclaration(
+  return ts.factory.createVariableStatement(undefined, [
+    ts.factory.createVariableDeclaration(
       name,
       undefined,
-      ts.createPropertyAccess(
-        ts.createIdentifier("Inferno"),
-        ts.createIdentifier(name)
+      undefined,
+      ts.factory.createPropertyAccessExpression(
+        ts.factory.createIdentifier("Inferno"),
+        ts.factory.createIdentifier(name)
       )
     )
   ]);

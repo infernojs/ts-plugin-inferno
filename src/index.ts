@@ -39,12 +39,12 @@ export default () => {
         return sourceFile
       }
 
-      const importSpecifiers = new Map();
+      const importSpecifiers = new Map<string, ts.ImportSpecifier>();
 
       for (const name of POSSIBLE_IMPORTS_TO_ADD) {
         importSpecifiers.set(
             name,
-            factory.createImportSpecifier(undefined, undefined, factory.createIdentifier(name))
+            factory.createImportSpecifier(undefined, factory.createIdentifier(name))
         )
       }
 
@@ -58,6 +58,18 @@ export default () => {
       let newSourceFile = ts.visitEachChild(sourceFile, visitor, context)
 
       if (isTargetHigherThanES2015(context)) {
+        let statements = [...newSourceFile.statements];
+        const matchedImportIdx = statements
+            .findIndex(s => ts.isImportDeclaration(s)
+                && (s.moduleSpecifier as ts.StringLiteral).text === 'inferno'
+            );
+
+        if (matchedImportIdx !== -1) {
+          ((statements[matchedImportIdx] as ts.ImportDeclaration).importClause.namedBindings as ts.NamedImports).elements.forEach(e => {
+            context[e.name.text] = false;
+          });
+        }
+
         const specifiersToAdd: ts.ImportSpecifier[] = [];
 
         for (const name of POSSIBLE_IMPORTS_TO_ADD) {
@@ -65,12 +77,6 @@ export default () => {
             specifiersToAdd.push(importSpecifiers.get(name));
           }
         }
-
-        let statements = [...newSourceFile.statements];
-        const matchedImportIdx = statements
-            .findIndex(s => ts.isImportDeclaration(s)
-                && (s.moduleSpecifier as ts.StringLiteral).text === 'inferno'
-        );
 
         // TODO: https://stackoverflow.com/questions/67723545/how-to-update-or-insert-to-import-using-typescript-compiler-api
         if (specifiersToAdd.length > 0) {
@@ -83,30 +89,34 @@ export default () => {
                     undefined,
                     factory.createNamedImports(specifiersToAdd)
                 ),
-                factory.createStringLiteral('inferno'),
-                undefined
+                factory.createStringLiteral('inferno')
             );
             (importStatement as Mutable<ts.ImportDeclaration>).parent = sourceFile;
             statements.unshift(importStatement);
           } else {
-            const importStatement = factory.updateImportDeclaration(
-                    (statements[matchedImportIdx] as ts.ImportDeclaration),
-                    (statements[matchedImportIdx] as ts.ImportDeclaration).decorators,
-                (statements[matchedImportIdx] as ts.ImportDeclaration).modifiers,
-                factory.updateImportClause(
-                    (statements[matchedImportIdx] as ts.ImportDeclaration).importClause,
-                    undefined,
-                    undefined,
-                    factory.updateNamedImports(
-                        (statements[matchedImportIdx] as ts.ImportDeclaration).importClause.namedBindings as ts.NamedImports,
-                        [...((statements[matchedImportIdx] as ts.ImportDeclaration).importClause.namedBindings as ts.NamedImports).elements, ...factory.createNamedImports(specifiersToAdd).elements]
-                    )
-                ),
-                (statements[matchedImportIdx] as ts.ImportDeclaration).moduleSpecifier,
-                (statements[matchedImportIdx] as ts.ImportDeclaration).assertClause
-            );
-            (importStatement as Mutable<ts.ImportDeclaration>).parent = sourceFile;
-            statements.splice(matchedImportIdx, 1, importStatement);
+            // Remove
+
+
+            // @ts-ignore
+            (statements[matchedImportIdx].importClause.namedBindings as Mutable<ts.NamedImports>).elements = (statements[matchedImportIdx].importClause.namedBindings as Mutable<ts.NamedImports>).elements.concat(specifiersToAdd);
+            // const importStatement = factory.updateImportDeclaration(
+            //         (statements[matchedImportIdx] as ts.ImportDeclaration),
+            //         (statements[matchedImportIdx] as ts.ImportDeclaration).decorators,
+            //     (statements[matchedImportIdx] as ts.ImportDeclaration).modifiers,
+            //     factory.updateImportClause(
+            //         (statements[matchedImportIdx] as ts.ImportDeclaration).importClause,
+            //         (statements[matchedImportIdx] as ts.ImportDeclaration).importClause.isTypeOnly,
+            //         (statements[matchedImportIdx] as ts.ImportDeclaration).importClause.name,
+            //         factory.updateNamedImports(
+            //             (statements[matchedImportIdx] as ts.ImportDeclaration).importClause.namedBindings as ts.NamedImports,
+            //             ((statements[matchedImportIdx] as ts.ImportDeclaration).importClause.namedBindings as ts.NamedImports).elements.concat(specifiersToAdd)
+            //         )
+            //     ),
+            //     (statements[matchedImportIdx] as ts.ImportDeclaration).moduleSpecifier
+            //
+            // );
+            // (importStatement as Mutable<ts.ImportDeclaration>).parent = sourceFile;
+            // statements[matchedImportIdx] = importStatement;
           }
         }
 
