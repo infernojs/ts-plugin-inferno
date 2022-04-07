@@ -64,6 +64,7 @@ export default () => {
                 && (s.moduleSpecifier as ts.StringLiteral).text === 'inferno'
             );
 
+        // Inferno import statement already exists, and we do not want to add imports for functions already imported, so removing those from context.
         if (matchedImportIdx !== -1) {
           ((statements[matchedImportIdx] as ts.ImportDeclaration).importClause.namedBindings as ts.NamedImports).elements.forEach(e => {
             context[e.name.text] = false;
@@ -78,7 +79,6 @@ export default () => {
           }
         }
 
-        // TODO: https://stackoverflow.com/questions/67723545/how-to-update-or-insert-to-import-using-typescript-compiler-api
         if (specifiersToAdd.length > 0) {
           if (matchedImportIdx === -1) {
             const importStatement = factory.createImportDeclaration(
@@ -94,14 +94,14 @@ export default () => {
             (importStatement as Mutable<ts.ImportDeclaration>).parent = sourceFile;
             statements.unshift(importStatement);
           } else {
-            // Remove
-
-
+            // Bit ugly and hacky, but it works
             // @ts-ignore
-            (statements[matchedImportIdx].importClause.namedBindings as Mutable<ts.NamedImports>).elements = (statements[matchedImportIdx].importClause.namedBindings as Mutable<ts.NamedImports>).elements.concat(specifiersToAdd);
+            (statements[matchedImportIdx].importClause.namedBindings).elements = (statements[matchedImportIdx].importClause.namedBindings).elements.concat(specifiersToAdd);
+
+            // This does something to the original import and ts wont remove unused imports anymore. Don't know why or how to fix.
             // const importStatement = factory.updateImportDeclaration(
-            //         (statements[matchedImportIdx] as ts.ImportDeclaration),
-            //         (statements[matchedImportIdx] as ts.ImportDeclaration).decorators,
+            //     (statements[matchedImportIdx] as ts.ImportDeclaration),
+            //     (statements[matchedImportIdx] as ts.ImportDeclaration).decorators,
             //     (statements[matchedImportIdx] as ts.ImportDeclaration).modifiers,
             //     factory.updateImportClause(
             //         (statements[matchedImportIdx] as ts.ImportDeclaration).importClause,
@@ -113,8 +113,8 @@ export default () => {
             //         )
             //     ),
             //     (statements[matchedImportIdx] as ts.ImportDeclaration).moduleSpecifier
-            //
             // );
+            //
             // (importStatement as Mutable<ts.ImportDeclaration>).parent = sourceFile;
             // statements[matchedImportIdx] = importStatement;
           }
