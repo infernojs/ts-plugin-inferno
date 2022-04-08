@@ -11,7 +11,6 @@ import svgAttributes from './utils/svgAttributes'
 import isNodeNull from './utils/isNodeNull'
 import handleWhiteSpace from './utils/handleWhiteSpace'
 import vNodeTypes from './utils/vNodeTypes'
-import isTargetHigherThanES2015 from "./utils/isTargetHigherThanES2015";
 import updateSourceFile from './updateSourceFile'
 let NULL
 
@@ -55,76 +54,9 @@ export default () => {
       context['createTextVNode'] = false
       context['normalizeProps'] = false
 
-      let newSourceFile = ts.visitEachChild(sourceFile, visitor, context)
+      const newSourceFile = ts.visitEachChild(sourceFile, visitor, context)
 
-      if (isTargetHigherThanES2015(context)) {
-        let statements = [...newSourceFile.statements];
-        const matchedImportIdx = statements
-            .findIndex(s => ts.isImportDeclaration(s)
-                && (s.moduleSpecifier as ts.StringLiteral).text === 'inferno'
-            );
-
-        // Inferno import statement already exists, and we do not want to add imports for functions already imported, so removing those from context.
-        if (matchedImportIdx !== -1) {
-          ((statements[matchedImportIdx] as ts.ImportDeclaration).importClause.namedBindings as ts.NamedImports).elements.forEach(e => {
-            context[e.name.text] = false;
-          });
-        }
-
-        const specifiersToAdd: ts.ImportSpecifier[] = [];
-
-        for (const name of POSSIBLE_IMPORTS_TO_ADD) {
-          if (context[name]) {
-            specifiersToAdd.push(importSpecifiers.get(name));
-          }
-        }
-
-        if (specifiersToAdd.length > 0) {
-          if (matchedImportIdx === -1) {
-            const importStatement = factory.createImportDeclaration(
-                undefined,
-                undefined,
-                factory.createImportClause(
-                    false,
-                    undefined,
-                    factory.createNamedImports(specifiersToAdd)
-                ),
-                factory.createStringLiteral('inferno')
-            );
-            (importStatement as Mutable<ts.ImportDeclaration>).parent = sourceFile;
-            statements.unshift(importStatement);
-          } else {
-            // Bit ugly and hacky, but it works
-            // @ts-ignore
-            (statements[matchedImportIdx].importClause.namedBindings).elements = (statements[matchedImportIdx].importClause.namedBindings).elements.concat(specifiersToAdd);
-
-            // This does something to the original import and ts wont remove unused imports anymore. Don't know why or how to fix.
-            // const importStatement = factory.updateImportDeclaration(
-            //     (statements[matchedImportIdx] as ts.ImportDeclaration),
-            //     (statements[matchedImportIdx] as ts.ImportDeclaration).decorators,
-            //     (statements[matchedImportIdx] as ts.ImportDeclaration).modifiers,
-            //     factory.updateImportClause(
-            //         (statements[matchedImportIdx] as ts.ImportDeclaration).importClause,
-            //         (statements[matchedImportIdx] as ts.ImportDeclaration).importClause.isTypeOnly,
-            //         (statements[matchedImportIdx] as ts.ImportDeclaration).importClause.name,
-            //         factory.updateNamedImports(
-            //             (statements[matchedImportIdx] as ts.ImportDeclaration).importClause.namedBindings as ts.NamedImports,
-            //             ((statements[matchedImportIdx] as ts.ImportDeclaration).importClause.namedBindings as ts.NamedImports).elements.concat(specifiersToAdd)
-            //         )
-            //     ),
-            //     (statements[matchedImportIdx] as ts.ImportDeclaration).moduleSpecifier
-            // );
-            //
-            // (importStatement as Mutable<ts.ImportDeclaration>).parent = sourceFile;
-            // statements[matchedImportIdx] = importStatement;
-          }
-        }
-
-        return factory.updateSourceFile(newSourceFile, statements);
-      }
-
-
-      return updateSourceFile(newSourceFile, context, factory)
+      return updateSourceFile(newSourceFile, context)
     }
 
     function getImportSpecifier(name: 'createFragment' | 'createVNode' | 'createComponentVNode' | 'createTextVNode' | 'normalizeProps'): ts.Expression {
