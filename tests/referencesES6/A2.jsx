@@ -19,30 +19,20 @@ var __extends = (this && this.__extends) || (function () {
         if (v !== undefined) module.exports = v;
     }
     else if (typeof define === "function" && define.amd) {
-        define(["require", "exports", "inferno", "inferno"], factory);
+        define(["require", "exports", "inferno"], factory);
     }
 })(function (require, exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    var Inferno = require("inferno");
-    var createComponentVNode = Inferno.createComponentVNode;
-    var createVNode = Inferno.createVNode;
     var inferno_1 = require("inferno");
-    var GenericPrinter = /** @class */ (function (_super) {
-        __extends(GenericPrinter, _super);
-        function GenericPrinter(props) {
-            var _this = _super.call(this, props) || this;
-            _this.state = {};
-            return _this;
+    var ToinenLuokka = /** @class */ (function (_super) {
+        __extends(ToinenLuokka, _super);
+        function ToinenLuokka() {
+            return _super !== null && _super.apply(this, arguments) || this;
         }
-        GenericPrinter.prototype.render = function () {
-            var content = createComponentVNode(2, this.props.Template, { "Data": this.props.Data });
-            return createVNode(1, "div", null, content, 0);
+        ToinenLuokka.prototype.teeJuttuja = function (numero) {
+            return numero + 2;
         };
-        return GenericPrinter;
-    }(inferno_1.Component));
-    function Test(props) {
-        return createVNode(1, "div", null, props.Data.toString(), 0);
-    }
-    (0, inferno_1.render)(createComponentVNode(2, GenericPrinter, { "Template": Test, "Data": 'lol' }), document.body);
+        return ToinenLuokka;
+    }(inferno_1.Luokka));
 });

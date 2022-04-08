@@ -25,24 +25,16 @@ var __extends = (this && this.__extends) || (function () {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var Inferno = require("inferno");
-    var createComponentVNode = Inferno.createComponentVNode;
     var createVNode = Inferno.createVNode;
     var inferno_1 = require("inferno");
-    var GenericPrinter = /** @class */ (function (_super) {
-        __extends(GenericPrinter, _super);
-        function GenericPrinter(props) {
-            var _this = _super.call(this, props) || this;
-            _this.state = {};
-            return _this;
+    var ExampleClass = /** @class */ (function (_super) {
+        __extends(ExampleClass, _super);
+        function ExampleClass() {
+            return _super !== null && _super.apply(this, arguments) || this;
         }
-        GenericPrinter.prototype.render = function () {
-            var content = createComponentVNode(2, this.props.Template, { "Data": this.props.Data });
-            return createVNode(1, "div", null, content, 0);
+        ExampleClass.prototype.render = function () {
+            return createVNode(1, "div", null, (0, inferno_1.createVNode)(1, "div", null, 'some text', 0), 0);
         };
-        return GenericPrinter;
+        return ExampleClass;
     }(inferno_1.Component));
-    function Test(props) {
-        return createVNode(1, "div", null, props.Data.toString(), 0);
-    }
-    (0, inferno_1.render)(createComponentVNode(2, GenericPrinter, { "Template": Test, "Data": 'lol' }), document.body);
 });
