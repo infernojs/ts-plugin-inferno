@@ -1,3 +1,2 @@
-import * as Inferno from "inferno";
-var createVNode = Inferno.createVNode;
+import { createVNode } from "inferno";
 createVNode(128, "textarea", null, "foobar", 16);

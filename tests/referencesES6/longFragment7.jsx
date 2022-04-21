@@ -1,3 +1,2 @@
-import * as Inferno from "inferno";
-var createFragment = Inferno.createFragment;
+import { createFragment } from "inferno";
 createFragment(dynamic, 0);

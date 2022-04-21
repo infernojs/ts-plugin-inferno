@@ -1,3 +1,3 @@
-import * as Inferno from "inferno";
-var createComponentVNode = Inferno.createComponentVNode;
+import * as inferno_1 from "inferno";
+var createComponentVNode = inferno_1.createComponentVNode;
 createComponentVNode(2, Com, { "children": "ab" });

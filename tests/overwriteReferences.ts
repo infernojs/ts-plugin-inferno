@@ -11,3 +11,13 @@ globSync(resolve(__dirname, "temp/*.jsx")).map(filePath => {
     console.log(`${basename(filePath)} successfully overwritten`);
   });
 });
+
+globSync(resolve(__dirname, "tempES6/*.jsx")).map(filePath => {
+  const referencePath = resolve(__dirname, "referencesES6/" + basename(filePath));
+
+  copy(filePath, referencePath, err => {
+    if (err) return console.error(err);
+
+    console.log(`${basename(filePath)} successfully overwritten`);
+  });
+});

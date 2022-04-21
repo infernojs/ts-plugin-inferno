@@ -1,3 +1,2 @@
-import * as Inferno from "inferno";
-var createComponentVNode = Inferno.createComponentVNode;
+import { createComponentVNode } from "inferno";
 createComponentVNode(2, Components.Unknown, { "children": "1" });

@@ -19,15 +19,14 @@ var __extends = (this && this.__extends) || (function () {
         if (v !== undefined) module.exports = v;
     }
     else if (typeof define === "function" && define.amd) {
-        define(["require", "exports", "inferno", "inferno", "inferno-component", "./components/Incrementer"], factory);
+        define(["require", "exports", "inferno", "inferno-component", "./components/Incrementer"], factory);
     }
 })(function (require, exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    var Inferno = require("inferno");
-    var createComponentVNode = Inferno.createComponentVNode;
-    var createVNode = Inferno.createVNode;
     var inferno_1 = require("inferno");
+    var createComponentVNode = inferno_1.createComponentVNode;
+    var createVNode = inferno_1.createVNode;
     var inferno_component_1 = require("inferno-component");
     var Incrementer_1 = require("./components/Incrementer");
     var container = document.getElementById("app");

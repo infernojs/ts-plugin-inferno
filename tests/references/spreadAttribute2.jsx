@@ -6,7 +6,7 @@ var __assign = (this && this.__assign) || Object.assign || function(t) {
     }
     return t;
 };
-import * as Inferno from "inferno";
-var normalizeProps = Inferno.normalizeProps;
-var createVNode = Inferno.createVNode;
+import * as inferno_1 from "inferno";
+var normalizeProps = inferno_1.normalizeProps;
+var createVNode = inferno_1.createVNode;
 normalizeProps(createVNode(1, "div", null, null, 1, __assign({}, this.props, { "foo": "bar" })));

@@ -19,15 +19,14 @@ var __extends = (this && this.__extends) || (function () {
         if (v !== undefined) module.exports = v;
     }
     else if (typeof define === "function" && define.amd) {
-        define(["require", "exports", "inferno", "inferno"], factory);
+        define(["require", "exports", "inferno"], factory);
     }
 })(function (require, exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    var Inferno = require("inferno");
-    var createComponentVNode = Inferno.createComponentVNode;
-    var createVNode = Inferno.createVNode;
     var inferno_1 = require("inferno");
+    var createComponentVNode = inferno_1.createComponentVNode;
+    var createVNode = inferno_1.createVNode;
     var GenericPrinter = /** @class */ (function (_super) {
         __extends(GenericPrinter, _super);
         function GenericPrinter(props) {

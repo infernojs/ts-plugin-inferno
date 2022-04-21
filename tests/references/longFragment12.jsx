@@ -1,3 +1,3 @@
-import * as Inferno from "inferno";
-var createFragment = Inferno.createFragment;
+import * as inferno_1 from "inferno";
+var createFragment = inferno_1.createFragment;
 createFragment(magic, 4, "foo");

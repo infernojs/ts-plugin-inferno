@@ -1,3 +1,2 @@
-import * as Inferno from "inferno";
-var createVNode = Inferno.createVNode;
-createVNode(1, "div", null, null, 1, { "foo": function () { return (createVNode(1, "div", null, null, 1, { "bar": true })); } });
+import { createVNode } from "inferno";
+createVNode(1, "div", null, null, 1, { "foo": () => (createVNode(1, "div", null, null, 1, { "bar": true })) });

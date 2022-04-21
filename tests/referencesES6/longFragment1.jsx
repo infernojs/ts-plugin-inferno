@@ -1,4 +1,2 @@
-import * as Inferno from "inferno";
-var createTextVNode = Inferno.createTextVNode;
-var createFragment = Inferno.createFragment;
+import { createFragment, createTextVNode } from "inferno";
 createFragment([createFragment([createTextVNode("Text")], 4)], 4);

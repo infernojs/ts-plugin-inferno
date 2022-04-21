@@ -1,5 +1,4 @@
-import * as Inferno from "inferno";
-var createVNode = Inferno.createVNode;
+import { createVNode } from "inferno";
 createVNode(1, "div", null, false && [
     createVNode(1, "div"),
     createVNode(1, "span")
