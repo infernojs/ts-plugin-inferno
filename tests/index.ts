@@ -5,12 +5,12 @@ import { resolve, basename } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
 import { mkdirpSync } from 'fs-extra'
 
+// Target is ES5 and module is UMD
 const config = {
   ...ts.getDefaultCompilerOptions(),
   experimentalDecorators: true,
   jsx: ts.JsxEmit.Preserve,
   module: ts.ModuleKind.UMD,
-  // module: ts.ModuleKind.ES2015,
   moduleResolution: ts.ModuleResolutionKind.NodeJs,
   noEmitOnError: false,
   noUnusedLocals: true,
@@ -22,6 +22,7 @@ const config = {
   }
 }
 
+// Target is ES2015 (same as ES6)
 const configES6 = {
   ...ts.getDefaultCompilerOptions(),
   experimentalDecorators: true,
@@ -30,7 +31,7 @@ const configES6 = {
   noUnusedLocals: true,
   noUnusedParameters: true,
   stripInternal: true,
-  target: ts.ScriptTarget.ES2016,
+  target: ts.ScriptTarget.ES2015,
   compilerOptions: {
     importsNotUsedAsValues: ['remove'],
   }

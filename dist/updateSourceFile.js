@@ -10,7 +10,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var ts = require("typescript");
-var isTargetHigherThanES2015_1 = require("./utils/isTargetHigherThanES2015");
+var isTargetHigherThanES5_1 = require("./utils/isTargetHigherThanES5");
 var index_1 = require("./index");
 var isImportDeclaration_1 = require("./utils/isImportDeclaration");
 var isNamedImports_1 = require("./utils/isNamedImports");
@@ -22,32 +22,32 @@ function createVarStatement(name, identifier) {
 }
 exports.default = (function (sourceFile, context) {
     var factory = context.factory;
-    if ((0, isTargetHigherThanES2015_1.default)(context)) {
-        var statements_1 = sourceFile.statements;
-        var matchedImportIdx = statements_1
+    if ((0, isTargetHigherThanES5_1.default)(context)) {
+        var statements = sourceFile.statements;
+        var matchedImportIdx = statements
             .findIndex(function (s) { return ts.isImportDeclaration(s)
             && s.moduleSpecifier.text === 'inferno'; });
         // Inferno import statement already exists, and we do not want to add imports for functions already imported, so removing those from context.
         if (matchedImportIdx !== -1) {
-            statements_1[matchedImportIdx].importClause.namedBindings.elements.forEach(function (e) {
+            statements[matchedImportIdx].importClause.namedBindings.elements.forEach(function (e) {
                 context[e.name.text] = false;
             });
         }
-        var specifiersToAdd_2 = [];
+        var specifiersToAdd = [];
         for (var _i = 0, POSSIBLE_IMPORTS_TO_ADD_1 = index_1.POSSIBLE_IMPORTS_TO_ADD; _i < POSSIBLE_IMPORTS_TO_ADD_1.length; _i++) {
             var name_1 = POSSIBLE_IMPORTS_TO_ADD_1[_i];
             if (context[name_1]) {
-                specifiersToAdd_2.push(context['infernoImportSpecifiers'].get(name_1));
+                specifiersToAdd.push(context['infernoImportSpecifiers'].get(name_1));
             }
         }
-        if (specifiersToAdd_2.length > 0) {
+        if (specifiersToAdd.length > 0) {
             if (matchedImportIdx === -1) {
-                var importStatement = factory.createImportDeclaration(undefined, undefined, factory.createImportClause(false, undefined, factory.createNamedImports(specifiersToAdd_2)), factory.createStringLiteral('inferno'));
+                var importStatement = factory.createImportDeclaration(undefined, undefined, factory.createImportClause(false, undefined, factory.createNamedImports(specifiersToAdd)), factory.createStringLiteral('inferno'));
                 importStatement.parent = sourceFile;
-                statements_1 = Object.assign(__spreadArray([importStatement], statements_1, true), { pos: statements_1.pos, end: statements_1.end, hasTrailingComma: statements_1.hasTrailingComma });
+                statements = Object.assign(__spreadArray([importStatement], statements, true), { pos: statements.pos, end: statements.end, hasTrailingComma: statements.hasTrailingComma });
             }
             else {
-                var statement = statements_1[matchedImportIdx];
+                var statement = statements[matchedImportIdx];
                 if (!(0, isImportDeclaration_1.isImportDeclaration)(statement)) {
                     throw new Error('Unexpected non-import statement');
                 }
@@ -61,35 +61,37 @@ exports.default = (function (sourceFile, context) {
                 if (!(0, isMutable_1.isMutable)(namedBindings)) {
                     throw new Error('Unexpected immutable import statement');
                 }
-                namedBindings.elements = Object.assign(namedBindings.elements.concat(specifiersToAdd_2), {
+                namedBindings.elements = Object.assign(namedBindings.elements.concat(specifiersToAdd), {
                     hasTrailingComma: namedBindings.elements.hasTrailingComma,
                     pos: namedBindings.elements.pos,
                     end: namedBindings.elements.end
                 });
             }
         }
-        return factory.updateSourceFile(sourceFile, statements_1);
+        return factory.updateSourceFile(sourceFile, statements);
     }
-    var statements = __spreadArray([], sourceFile.statements, true);
-    var specifiersToAdd = [];
-    for (var _a = 0, POSSIBLE_IMPORTS_TO_ADD_2 = index_1.POSSIBLE_IMPORTS_TO_ADD; _a < POSSIBLE_IMPORTS_TO_ADD_2.length; _a++) {
-        var name_2 = POSSIBLE_IMPORTS_TO_ADD_2[_a];
-        if (context[name_2]) {
-            specifiersToAdd.push(context['infernoImportSpecifiers'].get(name_2).name.text);
+    else {
+        var statements = __spreadArray([], sourceFile.statements, true);
+        var specifiersToAdd = [];
+        for (var _a = 0, POSSIBLE_IMPORTS_TO_ADD_2 = index_1.POSSIBLE_IMPORTS_TO_ADD; _a < POSSIBLE_IMPORTS_TO_ADD_2.length; _a++) {
+            var name_2 = POSSIBLE_IMPORTS_TO_ADD_2[_a];
+            if (context[name_2]) {
+                specifiersToAdd.push(context['infernoImportSpecifiers'].get(name_2).name.text);
+            }
         }
-    }
-    if (specifiersToAdd.length > 0) {
-        var matchedImportIdx = statements
-            .findIndex(function (s) { return ts.isImportDeclaration(s)
-            && s.moduleSpecifier.text === 'inferno'; });
-        var infernoImportStatement = statements[matchedImportIdx];
-        for (var _b = 0, specifiersToAdd_1 = specifiersToAdd; _b < specifiersToAdd_1.length; _b++) {
-            var specifier = specifiersToAdd_1[_b];
-            // Insert var statement after inferno import statement
-            statements.splice(matchedImportIdx + 1, 0, createVarStatement(specifier, 'inferno_1'));
-        }
-        if (!infernoImportStatement) {
-            statements.unshift(factory.createImportDeclaration(undefined, undefined, factory.createImportClause(undefined, undefined, factory.createNamespaceImport(factory.createIdentifier("inferno_1"))), factory.createStringLiteral("inferno")));
+        if (specifiersToAdd.length > 0) {
+            var matchedImportIdx = statements
+                .findIndex(function (s) { return ts.isImportDeclaration(s)
+                && s.moduleSpecifier.text === 'inferno'; });
+            var infernoImportStatement = statements[matchedImportIdx];
+            for (var _b = 0, specifiersToAdd_1 = specifiersToAdd; _b < specifiersToAdd_1.length; _b++) {
+                var specifier = specifiersToAdd_1[_b];
+                // Insert var statement after inferno import statement
+                statements.splice(matchedImportIdx + 1, 0, createVarStatement(specifier, 'inferno_1'));
+            }
+            if (!infernoImportStatement) {
+                statements.unshift(factory.createImportDeclaration(undefined, undefined, factory.createImportClause(undefined, undefined, factory.createNamespaceImport(factory.createIdentifier("inferno_1"))), factory.createStringLiteral("inferno")));
+            }
         }
         return factory.updateSourceFile(sourceFile, statements);
     }
