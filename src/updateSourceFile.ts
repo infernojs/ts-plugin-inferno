@@ -91,44 +91,43 @@ export default (sourceFile: ts.SourceFile, context: ts.TransformationContext) =>
     }
 
     return factory.updateSourceFile(sourceFile, statements);
-  } else {
-    let statements = [...sourceFile.statements];
+  }
+  let statements = [...sourceFile.statements];
 
-    const specifiersToAdd: string[] = [];
+  const specifiersToAdd: string[] = [];
 
-    for (const name of POSSIBLE_IMPORTS_TO_ADD) {
-      if (context[name]) {
-        specifiersToAdd.push(context['infernoImportSpecifiers'].get(name).name.text);
-      }
+  for (const name of POSSIBLE_IMPORTS_TO_ADD) {
+    if (context[name]) {
+      specifiersToAdd.push(context['infernoImportSpecifiers'].get(name).name.text);
+    }
+  }
+
+  if (specifiersToAdd.length > 0) {
+    const matchedImportIdx = statements
+        .findIndex(s => ts.isImportDeclaration(s)
+            && (s.moduleSpecifier as ts.StringLiteral).text === 'inferno'
+        );
+
+    const infernoImportStatement = statements[matchedImportIdx];
+
+    for (const specifier of specifiersToAdd) {
+      // Insert var statement after inferno import statement
+      statements.splice(matchedImportIdx + 1, 0, createVarStatement(specifier, 'inferno_1'));
     }
 
-    if (specifiersToAdd.length > 0) {
-      const matchedImportIdx = statements
-          .findIndex(s => ts.isImportDeclaration(s)
-              && (s.moduleSpecifier as ts.StringLiteral).text === 'inferno'
-          );
-
-      const infernoImportStatement = statements[matchedImportIdx];
-
-      for (const specifier of specifiersToAdd) {
-        // Insert var statement after inferno import statement
-        statements.splice(matchedImportIdx + 1, 0, createVarStatement(specifier, 'inferno_1'));
-      }
-
-      if (!infernoImportStatement) {
-        statements.unshift(
-            factory.createImportDeclaration(
-                undefined,
-                undefined,
-                factory.createImportClause(
-                    undefined,
-                    undefined,
-                    factory.createNamespaceImport(factory.createIdentifier("inferno_1"))
-                ),
-                factory.createStringLiteral("inferno")
-            )
-        );
-      }
+    if (!infernoImportStatement) {
+      statements.unshift(
+          factory.createImportDeclaration(
+              undefined,
+              undefined,
+              factory.createImportClause(
+                  undefined,
+                  undefined,
+                  factory.createNamespaceImport(factory.createIdentifier("inferno_1"))
+              ),
+              factory.createStringLiteral("inferno")
+          )
+      );
     }
 
     return factory.updateSourceFile(sourceFile, statements);
