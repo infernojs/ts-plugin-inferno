@@ -80,18 +80,11 @@ exports.default = (function (sourceFile, context) {
             }
         }
         if (specifiersToAdd.length > 0) {
-            var matchedImportIdx = statements
-                .findIndex(function (s) { return ts.isImportDeclaration(s)
-                && s.moduleSpecifier.text === 'inferno'; });
-            var infernoImportStatement = statements[matchedImportIdx];
             for (var _b = 0, specifiersToAdd_1 = specifiersToAdd; _b < specifiersToAdd_1.length; _b++) {
                 var specifier = specifiersToAdd_1[_b];
-                // Insert var statement after inferno import statement
-                statements.splice(matchedImportIdx + 1, 0, createVarStatement(specifier, 'inferno_1'));
+                statements.unshift(createVarStatement(specifier, 'inferno'));
             }
-            if (!infernoImportStatement) {
-                statements.unshift(factory.createImportDeclaration(undefined, undefined, factory.createImportClause(undefined, undefined, factory.createNamespaceImport(factory.createIdentifier("inferno_1"))), factory.createStringLiteral("inferno")));
-            }
+            statements.unshift(factory.createImportDeclaration(undefined, undefined, factory.createImportClause(undefined, undefined, factory.createNamespaceImport(factory.createIdentifier("inferno"))), factory.createStringLiteral("inferno")));
         }
         return factory.updateSourceFile(sourceFile, statements);
     }

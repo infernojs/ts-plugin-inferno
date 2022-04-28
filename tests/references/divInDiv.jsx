@@ -1,3 +1,3 @@
-import * as inferno_1 from "inferno";
-var createVNode = inferno_1.createVNode;
+import * as inferno from "inferno";
+var createVNode = inferno.createVNode;
 createVNode(1, "div", null, createVNode(1, "div", null, "single", 16), 2);

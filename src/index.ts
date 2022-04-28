@@ -43,7 +43,7 @@ export default () => {
       for (const name of POSSIBLE_IMPORTS_TO_ADD) {
         importSpecifiers.set(
             name,
-            factory.createImportSpecifier(undefined, factory.createIdentifier(name))
+            factory.createImportSpecifier(undefined, undefined, factory.createIdentifier(name))
         )
       }
 

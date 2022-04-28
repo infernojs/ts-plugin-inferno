@@ -36,7 +36,7 @@ exports.default = (function () {
             var importSpecifiers = new Map();
             for (var _i = 0, POSSIBLE_IMPORTS_TO_ADD_1 = exports.POSSIBLE_IMPORTS_TO_ADD; _i < POSSIBLE_IMPORTS_TO_ADD_1.length; _i++) {
                 var name_1 = POSSIBLE_IMPORTS_TO_ADD_1[_i];
-                importSpecifiers.set(name_1, factory.createImportSpecifier(undefined, factory.createIdentifier(name_1)));
+                importSpecifiers.set(name_1, factory.createImportSpecifier(undefined, undefined, factory.createIdentifier(name_1)));
             }
             context['infernoImportSpecifiers'] = importSpecifiers;
             context['createFragment'] = false;
@@ -67,7 +67,7 @@ exports.default = (function () {
                          * directly inside an element or a fragment.
                          */
                         return factory.createStringLiteral(JSON.parse(ts
-                            .transpile("<>" + text + "</>", { jsx: ts.JsxEmit.React })
+                            .transpile("<>".concat(text, "</>"), { jsx: ts.JsxEmit.React })
                             .replace(/^[\s\S]*?("[\s\S]*")[\s\S]*?$/, '$1')));
                     }
                     break;

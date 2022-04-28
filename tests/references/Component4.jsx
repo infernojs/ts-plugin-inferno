@@ -1,3 +1,3 @@
-import * as inferno_1 from "inferno";
-var createComponentVNode = inferno_1.createComponentVNode;
+import * as inferno from "inferno";
+var createComponentVNode = inferno.createComponentVNode;
 createComponentVNode(2, Context.Provider);

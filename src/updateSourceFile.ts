@@ -103,32 +103,22 @@ export default (sourceFile: ts.SourceFile, context: ts.TransformationContext) =>
     }
 
     if (specifiersToAdd.length > 0) {
-      const matchedImportIdx = statements
-          .findIndex(s => ts.isImportDeclaration(s)
-              && (s.moduleSpecifier as ts.StringLiteral).text === 'inferno'
-          );
-
-      const infernoImportStatement = statements[matchedImportIdx];
-
       for (const specifier of specifiersToAdd) {
-        // Insert var statement after inferno import statement
-        statements.splice(matchedImportIdx + 1, 0, createVarStatement(specifier, 'inferno_1'));
+        statements.unshift(createVarStatement(specifier, 'inferno'));
       }
 
-      if (!infernoImportStatement) {
-        statements.unshift(
-            factory.createImportDeclaration(
-                undefined,
-                undefined,
-                factory.createImportClause(
-                    undefined,
-                    undefined,
-                    factory.createNamespaceImport(factory.createIdentifier("inferno_1"))
-                ),
-                factory.createStringLiteral("inferno")
-            )
-        );
-      }
+      statements.unshift(
+          factory.createImportDeclaration(
+              undefined,
+              undefined,
+              factory.createImportClause(
+                  undefined,
+                  undefined,
+                  factory.createNamespaceImport(factory.createIdentifier("inferno"))
+              ),
+              factory.createStringLiteral("inferno")
+          )
+      );
     }
 
     return factory.updateSourceFile(sourceFile, statements);
