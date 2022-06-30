@@ -26,9 +26,6 @@
   },
   "author": "Deam Hansen",
   "license": "MIT",
-  "peerDependencies": {
-    "typescript": ">=2.7.1"
-  },
   "devDependencies": {
     "@types/node": "^8.0.53",
     "fs-extra": "^4.0.2",

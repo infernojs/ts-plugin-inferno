@@ -12,6 +12,7 @@ import isNodeNull from './utils/isNodeNull'
 import handleWhiteSpace from './utils/handleWhiteSpace'
 import vNodeTypes from './utils/vNodeTypes'
 import updateSourceFile from './updateSourceFile'
+import {JsxExpression, StringLiteral} from "typescript";
 let NULL
 
 // All special attributes
@@ -478,7 +479,7 @@ export default () => {
       }
     }
 
-    function getVNodeProps(astProps, isComponent) {
+    function getVNodeProps(astProps: ts.NodeArray<ts.JsxAttributeLike>, isComponent) {
       let props = []
       let key = null
       let ref = null
@@ -496,12 +497,13 @@ export default () => {
 
       for (let i = 0; i < astProps.length; i++) {
         let astProp = astProps[i]
-        const initializer = astProp.initializer
+        let initializer: StringLiteral | JsxExpression;
 
         if (astProp.kind === ts.SyntaxKind.JsxSpreadAttribute) {
           needsNormalization = true
           assignArgs = [factory.createObjectLiteralExpression(), astProp.expression]
         } else {
+          initializer = astProp.initializer
           let propName = astProp.name.text
 
           if (
