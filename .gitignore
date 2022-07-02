@@ -6,3 +6,4 @@ tests/tempES6
 **/yarn.lock
 **/.fusebox
 **/.rpt2_cache
+.idea

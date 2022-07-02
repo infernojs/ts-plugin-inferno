@@ -4,10 +4,9 @@ import replace from 'rollup-plugin-replace'
 import typescript from 'rollup-plugin-typescript2'
 // const transformInferno = require('../../dist').default
 import transformInferno from 'ts-transform-inferno'
-console.log(transformInferno)
 import serve from 'rollup-plugin-serve'
 import livereload from 'rollup-plugin-livereload'
-import { uglify } from 'rollup-plugin-uglify'
+import { terser } from 'rollup-plugin-terser'
 
 const isProd = process.env.NODE_ENV === 'production'
 
@@ -70,7 +69,7 @@ if (!isProd) {
     })
   )
 } else {
-  config.plugins.push(uglify())
+  config.plugins.push(terser())
 }
 
 export default config
