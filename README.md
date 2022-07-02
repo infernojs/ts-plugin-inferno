@@ -1,7 +1,7 @@
-# ts-transform-inferno
+# ts-plugin-inferno
 
-[![travis](https://travis-ci.org/deamme/ts-transform-inferno.svg?branch=master)](https://travis-ci.org/deamme/ts-transform-inferno)
-[![npm version](https://badge.fury.io/js/ts-transform-inferno.svg)](https://badge.fury.io/js/ts-transform-inferno)
+[![travis](https://app.travis-ci.com/infernojs/ts-plugin-inferno.svg?branch=master)](https://app.travis-ci.com/github/infernojs/ts-plugin-inferno)
+[![npm version](https://badge.fury.io/js/ts-plugin-inferno.svg)](https://badge.fury.io/js/ts-plugin-inferno)
 
 Typescript JSX transformer for [InfernoJS](https://github.com/infernojs/inferno).
 
@@ -9,27 +9,19 @@ This is a plugin for Typescript compiler that compiles Typescript JSX syntax ( T
 
 # Install
 
-`yarn add -D ts-transform-inferno typescript`
+`yarn add -D ts-plugin-inferno typescript`
 
 ## General usage
 
 ```javascript
-const transformInferno = require('ts-transform-inferno').default
+const transformInferno = require('ts-plugin-inferno').default
 
 transformInferno()
 ```
 
 It's different depending on what bundler you're using. Please check the examples folder.
 
-### Usage with css-modules-next
-
-Check out the examples folder [here](https://github.com/deamme/ts-transform-css-modules-next).
-
-### Usage with classcat
-
-The examples are already using this. It's a custom transformer than comes before ts-transform-inferno. More about it [here](https://github.com/deamme/ts-transform-classcat).
-
-## Usage with FuseBox (recommended)
+## Usage with FuseBox
 
 Look into the `examples/fuse-box` folder and the `fuse.js` file.
 
@@ -65,11 +57,4 @@ Run `npm test` again to verify that all tests are passing.
 
 ## Credits
 
-Very much inspired by these projects:
-
-- [inferno-typescript-example](https://github.com/infernojs/inferno-typescript-example)
-- [ts-transform-css-modules](https://github.com/longlho/ts-transform-css-modules)
-- [ts-transform-react-intl](https://github.com/longlho/ts-transform-react-intl)
-- [babel-plugin-inferno](https://github.com/infernojs/babel-plugin-inferno)
-- [TypeScript](https://github.com/Microsoft/TypeScript)
-- [hyperapp-fusebox](https://github.com/osdevisnot/hyperapp-fusebox)
+This is fork of awesome [ts-transform-inferno](https://github.com/deamme/ts-transform-inferno)!

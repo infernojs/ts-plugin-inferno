@@ -3,7 +3,7 @@ import commonjs from 'rollup-plugin-commonjs'
 import replace from 'rollup-plugin-replace'
 import typescript from 'rollup-plugin-typescript2'
 // const transformInferno = require('../../dist').default
-import transformInferno from 'ts-transform-inferno'
+import transformInferno from 'ts-plugin-inferno'
 import serve from 'rollup-plugin-serve'
 import livereload from 'rollup-plugin-livereload'
 import { terser } from 'rollup-plugin-terser'

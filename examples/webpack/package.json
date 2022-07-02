@@ -1,7 +1,7 @@
 {
-  "name": "ts-transform-inferno-example",
+  "name": "ts-plugin-inferno-example",
   "version": "1.0.0",
-  "description": "Example of use of ts-transform-inferno with webpack",
+  "description": "Example of use of ts-plugin-inferno with webpack",
   "main": "index.js",
   "scripts": {
     "build:dev": "webpack",
@@ -17,7 +17,7 @@
     "clean-webpack-plugin": "^4.0.0",
     "html-webpack-plugin": "^5.5.0",
     "ts-loader": "9.3.1",
-    "ts-transform-inferno": "^4.0.3",
+    "ts-plugin-inferno": "^1.0.0",
     "typescript": "^4.7.4",
     "webpack": "^5.73.0",
     "webpack-cli": "^4.10.0",

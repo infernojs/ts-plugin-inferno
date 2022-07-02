@@ -7,7 +7,7 @@ const {
   QuantumPlugin,
 } = require('fuse-box')
 
-const transformInferno = require('ts-transform-inferno').default
+const transformInferno = require('ts-plugin-inferno').default
 let fuse, app
 let isProduction = false
 
