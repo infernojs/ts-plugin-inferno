@@ -2,10 +2,12 @@ var __extends = (this && this.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
             ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
         return extendStatics(d, b);
     };
     return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
         extendStatics(d, b);
         function __() { this.constructor = d; }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
@@ -22,9 +24,9 @@ var __extends = (this && this.__extends) || (function () {
 })(function (require, exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    var Inferno = require("inferno");
-    var createComponentVNode = Inferno.createComponentVNode;
-    var createVNode = Inferno.createVNode;
+    var inferno = require("inferno");
+    var createComponentVNode = inferno.createComponentVNode;
+    var createVNode = inferno.createVNode;
     var inferno_1 = require("inferno");
     var inferno_component_1 = require("inferno-component");
     var Incrementer_1 = require("./components/Incrementer");
@@ -37,9 +39,9 @@ var __extends = (this && this.__extends) || (function () {
             return _this;
         }
         MyComponent.prototype.render = function () {
-            return (createVNode(1, "div", null, [createVNode(1, "h1", null, "Welcome to Inferno " + inferno_1.version + " TSX " + this.tsxVersion, 0), createComponentVNode(2, Incrementer_1.Incrementer, { "name": "Crazy button" })], 4));
+            return (createVNode(1, "div", null, [createVNode(1, "h1", null, "Welcome to Inferno ".concat(inferno_1.version, " TSX ").concat(this.tsxVersion), 0), createComponentVNode(2, Incrementer_1.Incrementer, { "name": "Crazy button" })], 4));
         };
         return MyComponent;
     }(inferno_component_1.default));
-    inferno_1.render(createComponentVNode(2, MyComponent), container);
+    (0, inferno_1.render)(createComponentVNode(2, MyComponent), container);
 });
