@@ -3,9 +3,9 @@
 [![travis](https://travis-ci.org/deamme/ts-transform-inferno.svg?branch=master)](https://travis-ci.org/deamme/ts-transform-inferno)
 [![npm version](https://badge.fury.io/js/ts-transform-inferno.svg)](https://badge.fury.io/js/ts-transform-inferno)
 
-Typescript transformer for [InfernoJS](https://github.com/infernojs/inferno).
+Typescript JSX transformer for [InfernoJS](https://github.com/infernojs/inferno).
 
-A Typescript transformer is like a plugin to the Typescript compiler, so if you're using Typescript anyway in your project you don't need Babel as a dependency.
+This is a plugin for Typescript compiler that compiles Typescript JSX syntax ( TSX ) directly to Inferno API to avoid createElement method calls.
 
 # Install
 
