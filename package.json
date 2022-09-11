@@ -1,6 +1,6 @@
 {
   "name": "ts-plugin-inferno",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A typescript transformer for InfernoJS",
   "bugs": {
     "url": "https://github.com/infernojs/ts-plugin-inferno/issues"
