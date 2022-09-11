@@ -113,7 +113,7 @@ function printFinalResult() {
 }
 
 console.time('compile time')
-compile(resolve(__dirname, 'cases/*.tsx'), printResult)
-compileES6(resolve(__dirname, 'cases/*.tsx'), printResult)
+compile('tests/cases/*.tsx', printResult)
+compileES6('tests/cases/*.tsx', printResult)
 printFinalResult()
 console.timeEnd('compile time')
