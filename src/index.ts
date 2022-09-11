@@ -12,7 +12,6 @@ import isNodeNull from './utils/isNodeNull'
 import handleWhiteSpace from './utils/handleWhiteSpace'
 import vNodeTypes from './utils/vNodeTypes'
 import updateSourceFile from './updateSourceFile'
-import {JsxExpression, StringLiteral} from "typescript";
 let NULL
 
 // All special attributes
@@ -497,7 +496,7 @@ export default () => {
 
       for (let i = 0; i < astProps.length; i++) {
         let astProp = astProps[i]
-        let initializer: StringLiteral | JsxExpression;
+        let initializer;
 
         if (astProp.kind === ts.SyntaxKind.JsxSpreadAttribute) {
           needsNormalization = true
