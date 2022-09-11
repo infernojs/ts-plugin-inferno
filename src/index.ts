@@ -4,7 +4,6 @@ import { VNodeFlags, ChildFlags } from './utils/flags'
 import isComponent from './utils/isComponent'
 import isFragment from './utils/isFragment'
 import createAssignHelper from './utils/createAssignHelper'
-import isNullOrUndefined from './utils/isNullOrUndefined'
 import getName from './utils/getName'
 import getValue from './utils/getValue'
 import svgAttributes from './utils/svgAttributes'
@@ -610,13 +609,13 @@ export default () => {
 
       return {
         props: assignArgs,
-        key: isNullOrUndefined(key) ? NULL : key,
-        ref: isNullOrUndefined(ref) ? NULL : ref,
+        key: key == null ? NULL : key,
+        ref: ref == null ? NULL : ref,
         hasKeyedChildren: hasKeyedChildren,
         hasNonKeyedChildren: hasNonKeyedChildren,
         propChildren: propChildren,
         childrenKnown: childrenKnown,
-        className: isNullOrUndefined(className) ? NULL : className,
+        className: className == null ? NULL : className,
         childFlags: childFlags,
         hasReCreateFlag: hasReCreateFlag,
         needsNormalization: needsNormalization,
@@ -644,7 +643,7 @@ export default () => {
           foundText = true
         }
 
-        if (!isNullOrUndefined(vNode)) {
+        if (vNode != null) {
           children.push(vNode)
 
           /*
