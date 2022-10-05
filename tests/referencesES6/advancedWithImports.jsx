@@ -1,4 +1,4 @@
-import { render, version, createVNode, createComponentVNode } from "inferno";
+import { cloneVNode, render, version, createVNode, createComponentVNode } from "inferno";
 import Component from "inferno-component";
 import { Incrementer } from "./components/Incrementer";
 const container = document.getElementById("app");

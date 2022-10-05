@@ -48,7 +48,6 @@ export default (sourceFile: ts.SourceFile, context: ts.TransformationContext) =>
       if (matchedImportIdx === -1) {
         const importStatement = factory.createImportDeclaration(
             undefined,
-            undefined,
             factory.createImportClause(
                 false,
                 undefined,
@@ -64,8 +63,8 @@ export default (sourceFile: ts.SourceFile, context: ts.TransformationContext) =>
         if (!isImportDeclaration(statement)) {
           throw new Error('Unexpected non-import statement');
         }
-
-        const namedBindings = statement.importClause.namedBindings;
+        const importDeclaration = statement as ts.ImportDeclaration;
+        const namedBindings = importDeclaration.importClause.namedBindings;
 
         if (!namedBindings) {
           throw new Error('Unexpected import statement without import bindings');
@@ -79,14 +78,16 @@ export default (sourceFile: ts.SourceFile, context: ts.TransformationContext) =>
           throw new Error('Unexpected immutable import statement');
         }
 
-        namedBindings.elements = Object.assign(
-            namedBindings.elements.concat(specifiersToAdd),
-            {
-              hasTrailingComma: namedBindings.elements.hasTrailingComma,
-              pos: namedBindings.elements.pos,
-              end: namedBindings.elements.end
-            }
-        );
+        const newNamedImports = namedBindings.elements.concat(specifiersToAdd);
+
+        const updatedNamedImports = factory.updateNamedImports(namedBindings, newNamedImports);
+
+        (statements[matchedImportIdx] as ts.ImportDeclaration) = factory.updateImportDeclaration(
+            importDeclaration,
+            importDeclaration.modifiers,
+            factory.updateImportClause(importDeclaration.importClause!, importDeclaration.importClause!.isTypeOnly, undefined, updatedNamedImports),
+            importDeclaration.moduleSpecifier,
+            importDeclaration.assertClause);
       }
     }
 
@@ -110,9 +111,8 @@ export default (sourceFile: ts.SourceFile, context: ts.TransformationContext) =>
       statements.unshift(
           factory.createImportDeclaration(
               undefined,
-              undefined,
               factory.createImportClause(
-                  undefined,
+                  false,
                   undefined,
                   factory.createNamespaceImport(factory.createIdentifier("inferno"))
               ),
