@@ -9,4 +9,4 @@ var __assign = (this && this.__assign) || Object.assign || function(t) {
 import * as inferno from "inferno";
 var normalizeProps = inferno.normalizeProps;
 var createVNode = inferno.createVNode;
-normalizeProps(createVNode(1, "div", null, null, 1, __assign({}, props, other, more, { "foo": "bar" })));
+normalizeProps(createVNode(1, "div", null, null, 1, __assign({}, props, other, { "foo": "bar", "foo2": "bar2" }, more, { "foo3": "bar3" })));

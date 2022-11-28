@@ -18,8 +18,8 @@
     "inferno"
   ],
   "scripts": {
-    "test": "rimraf tests/temp && ts-node tests/index.ts",
-    "debug": "rimraf tests/temp && npm run build && node --inspect-brk --require ts-node/register tests/index.ts",
+    "test": "rimraf tests/temp && rimraf tests/tempES6 && ts-node tests/index.ts",
+    "debug": "rimraf tests/temp && rimraf tests/tempES6 && npm run build && node --inspect-brk --require ts-node/register tests/index.ts",
     "build": "tsc",
     "overwrite-references": "ts-node tests/overwriteReferences.ts",
     "prepublishOnly": "rimraf dist && tsc"
