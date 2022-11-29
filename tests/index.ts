@@ -3,6 +3,7 @@ import { sync as globSync } from 'glob'
 import transform from '../src'
 import { resolve, basename } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
+// @ts-ignore
 import { mkdirpSync } from 'fs-extra'
 
 // Target is ES5 and module is UMD
