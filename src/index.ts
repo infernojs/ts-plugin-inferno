@@ -478,7 +478,6 @@ export default () => {
     }
 
     function getVNodeProps(astProps: ts.NodeArray<ts.JsxAttributeLike>, isComponent) {
-      let props = []
       let key = null
       let ref = null
       let className = null
@@ -492,14 +491,28 @@ export default () => {
       let childFlags = null
       let contentEditable = false
       let assignArgs = []
+      let propsPropertyAssignments = []
+      let objectLiteralExpressionAdded = false
 
       for (let i = 0; i < astProps.length; i++) {
         let astProp = astProps[i]
         let initializer;
 
         if (astProp.kind === ts.SyntaxKind.JsxSpreadAttribute) {
+          if (propsPropertyAssignments.length) {
+            assignArgs.push(factory.createObjectLiteralExpression([...propsPropertyAssignments]))
+
+            propsPropertyAssignments = []
+          }
+
           needsNormalization = true
-          assignArgs = [factory.createObjectLiteralExpression(), astProp.expression]
+
+          if (!objectLiteralExpressionAdded) {
+            assignArgs.unshift(factory.createObjectLiteralExpression())
+            objectLiteralExpressionAdded = true
+          }
+
+          assignArgs.push(astProp.expression);
         } else {
           initializer = astProp.initializer
           let propName = astProp.name.text
@@ -510,14 +523,14 @@ export default () => {
           ) {
             className = getValue(initializer, visitor)
           } else if (!isComponent && propName === 'htmlFor') {
-            props.push(
+            propsPropertyAssignments.push(
               factory.createPropertyAssignment(
                 getName('for'),
                 getValue(initializer, visitor)
               )
             )
           } else if (!isComponent && propName === 'onDoubleClick') {
-            props.push(
+            propsPropertyAssignments.push(
               factory.createPropertyAssignment(
                 getName('onDblClick'),
                 getValue(initializer, visitor)
@@ -536,7 +549,7 @@ export default () => {
             )
           } else if (!isComponent && propName in svgAttributes) {
             // React compatibility for SVG Attributes
-            props.push(
+            propsPropertyAssignments.push(
               factory.createPropertyAssignment(
                 getName(svgAttributes[propName]),
                 getValue(initializer, visitor)
@@ -592,7 +605,7 @@ export default () => {
                 if (propName.toLowerCase() === 'contenteditable') {
                   contentEditable = true
                 }
-                props.push(
+                propsPropertyAssignments.push(
                   factory.createPropertyAssignment(
                     getName(propName),
                     initializer
@@ -605,7 +618,7 @@ export default () => {
         }
       }
 
-      if (props.length) assignArgs.push(factory.createObjectLiteralExpression(props))
+      if (propsPropertyAssignments.length) assignArgs.push(factory.createObjectLiteralExpression(propsPropertyAssignments))
 
       return {
         props: assignArgs,
