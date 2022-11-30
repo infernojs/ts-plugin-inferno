@@ -1,17 +1,16 @@
-import nodeResolve from 'rollup-plugin-node-resolve'
-import commonjs from 'rollup-plugin-commonjs'
-import replace from 'rollup-plugin-replace'
+import nodeResolve from '@rollup/plugin-node-resolve'
+import commonjs from '@rollup/plugin-commonjs'
+import replace from '@rollup/plugin-replace'
 import typescript from 'rollup-plugin-typescript2'
-// const transformInferno = require('../../dist').default
 import transformInferno from 'ts-plugin-inferno'
 import serve from 'rollup-plugin-serve'
 import livereload from 'rollup-plugin-livereload'
-import { terser } from 'rollup-plugin-terser'
+import terser from '@rollup/plugin-terser'
 
 const isProd = process.env.NODE_ENV === 'production'
 
 const tsTransformer = () => ({
-  before: [transformInferno()],
+  before: [transformInferno.default()],
   after: [],
 })
 
@@ -20,24 +19,13 @@ const config = {
   plugins: [
     nodeResolve({
       jsnext: true,
-      main: true,
-      customResolveOptions: {
-        packageFilter(pkg) {
-          if (!isProd && pkg['dev:module'] != null) {
-            pkg.main = pkg['dev:module']
-          } else if (pkg.module != null) {
-            pkg.main = pkg.module
-          } else if (pkg['js:next'] != null) {
-            pkg.main = pkg['js:next']
-          }
-          return pkg
-        },
-      },
+      main: true
     }),
     commonjs({
       include: 'node_modules/**',
     }),
     replace({
+      preventAssignment: true,
       'process.env.NODE_ENV': JSON.stringify(
         process.env.NODE_ENV || 'production'
       ),
