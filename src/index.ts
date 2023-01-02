@@ -10,7 +10,7 @@ import svgAttributes from './utils/svgAttributes'
 import isNodeNull from './utils/isNodeNull'
 import handleWhiteSpace from './utils/handleWhiteSpace'
 import vNodeTypes from './utils/vNodeTypes'
-import updateSourceFile from './updateSourceFile'
+import {updateSourceFile} from './updateSourceFile'
 let NULL
 
 // All special attributes
@@ -536,7 +536,7 @@ export default () => {
                 getValue(initializer, visitor)
               )
             )
-          } else if (propName.substr(0, 11) === 'onComponent' && isComponent) {
+          } else if (propName.substring(0, 11) === 'onComponent' && isComponent) {
             if (!ref) {
               ref = factory.createObjectLiteralExpression([])
             }
@@ -618,7 +618,9 @@ export default () => {
         }
       }
 
-      if (propsPropertyAssignments.length) assignArgs.push(factory.createObjectLiteralExpression(propsPropertyAssignments))
+      if (propsPropertyAssignments.length) {
+        assignArgs.push(factory.createObjectLiteralExpression(propsPropertyAssignments))
+      }
 
       return {
         props: assignArgs,

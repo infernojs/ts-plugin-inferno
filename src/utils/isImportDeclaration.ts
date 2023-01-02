@@ -1,6 +1,5 @@
-import * as ts from "typescript";
-import {SyntaxKind} from "typescript";
+import {ImportDeclaration, SyntaxKind, Node} from "typescript";
 
-export function isImportDeclaration(node: ts.Node): node is ts.ImportDeclaration {
+export function isImportDeclaration(node: Node): node is ImportDeclaration {
     return node.kind === SyntaxKind.ImportDeclaration
 }

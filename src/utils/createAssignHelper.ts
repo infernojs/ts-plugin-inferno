@@ -1,12 +1,13 @@
-import * as ts from "typescript";
+import {EmitFlags, EmitHelper, Expression, ScriptTarget, setEmitFlags, TransformationContext} from "typescript";
 
-const assignHelper: ts.EmitHelper = {
+
+const assignHelper: EmitHelper = {
   name: "typescript:assign",
   scoped: false,
   priority: 1,
   text: `
         var __assign = (this && this.__assign) || Object.assign || function(t) {
-            for (var s, i = 1, n = arguments.length; i < n; i++) {
+            for (var s, i = 1, n = argumenlength; i < n; i++) {
                 s = arguments[i];
                 for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
                     t[p] = s[p];
@@ -16,15 +17,15 @@ const assignHelper: ts.EmitHelper = {
 };
 
 export default function createAssignHelper(
-  context: ts.TransformationContext,
-  attributesSegments: ts.Expression[]
+  context: TransformationContext,
+  attributesSegments: Expression[]
 ) {
   const {factory} = context;
 
-  if (context.getCompilerOptions().target >= ts.ScriptTarget.ES2015) {
+  if (context.getCompilerOptions().target >= ScriptTarget.ES2015) {
     return factory.createCallExpression(
       factory.createPropertyAccessExpression(factory.createIdentifier("Object"), "assign"),
-      /*typeArguments*/ undefined,
+      undefined,
       attributesSegments
     );
   }
@@ -36,9 +37,9 @@ export default function createAssignHelper(
   );
 
   function getHelperName(name) {
-    return ts.setEmitFlags(
+    return setEmitFlags(
         factory.createIdentifier(name),
-        ts.EmitFlags.HelperName | ts.EmitFlags.AdviseOnEmitNode
+        EmitFlags.HelperName | EmitFlags.AdviseOnEmitNode
     );
   }
 }

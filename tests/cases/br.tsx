@@ -1,1 +1,1 @@
-<br>foobar</br>
+export const br = <br>foobar</br>
