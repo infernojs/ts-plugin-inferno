@@ -1,11 +1,11 @@
-import * as ts from "typescript";
+import {SyntaxKind} from "typescript";
 
 export default function isNodeNull(node) {
   if (!node) {
     return true;
   }
   if (
-    node.kind === ts.SyntaxKind.ArrayLiteralExpression &&
+    node.kind === SyntaxKind.ArrayLiteralExpression &&
     node.elements.length === 0
   ) {
     return true;
