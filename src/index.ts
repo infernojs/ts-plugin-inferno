@@ -4,7 +4,6 @@ import { VNodeFlags, ChildFlags } from './utils/flags'
 import isComponent from './utils/isComponent'
 import isFragment from './utils/isFragment'
 import createAssignHelper from './utils/createAssignHelper'
-import getName from './utils/getName'
 import getValue from './utils/getValue'
 import svgAttributes from './utils/svgAttributes'
 import isNodeNull from './utils/isNodeNull'
@@ -270,7 +269,7 @@ export default () => {
               props.properties.splice(childIndex, 1) // Remove prop children
             }
             props.properties.push(
-              factory.createPropertyAssignment(getName('children'), vChildren)
+              factory.createPropertyAssignment(factory.createStringLiteral('children'), vChildren)
             )
 
             vProps.props[0] = props
@@ -521,19 +520,19 @@ export default () => {
             !isComponent &&
             (propName === 'className' || propName === 'class')
           ) {
-            className = getValue(initializer, visitor)
+            className = getValue(initializer, visitor, factory)
           } else if (!isComponent && propName === 'htmlFor') {
             propsPropertyAssignments.push(
               factory.createPropertyAssignment(
-                getName('for'),
-                getValue(initializer, visitor)
+                factory.createStringLiteral('for'),
+                getValue(initializer, visitor, factory)
               )
             )
           } else if (!isComponent && propName === 'onDoubleClick') {
             propsPropertyAssignments.push(
               factory.createPropertyAssignment(
-                getName('onDblClick'),
-                getValue(initializer, visitor)
+                factory.createStringLiteral('onDblClick'),
+                getValue(initializer, visitor, factory)
               )
             )
           } else if (propName.substring(0, 11) === 'onComponent' && isComponent) {
@@ -543,16 +542,16 @@ export default () => {
 
             ref.properties.push(
               factory.createPropertyAssignment(
-                getName(propName),
-                getValue(initializer, visitor)
+                factory.createStringLiteral(propName),
+                getValue(initializer, visitor, factory)
               )
             )
           } else if (!isComponent && propName in svgAttributes) {
             // React compatibility for SVG Attributes
             propsPropertyAssignments.push(
               factory.createPropertyAssignment(
-                getName(svgAttributes[propName]),
-                getValue(initializer, visitor)
+                factory.createStringLiteral(svgAttributes[propName]),
+                getValue(initializer, visitor, factory)
               )
             )
           } else {
@@ -572,7 +571,7 @@ export default () => {
                   propName.slice(1)
               case PROP_ChildFlag:
                 childrenKnown = true
-                childFlags = getValue(initializer, visitor)
+                childFlags = getValue(initializer, visitor, factory)
                 break
               case PROP_VNODE_CHILDREN:
                 childrenKnown = true
@@ -590,10 +589,10 @@ export default () => {
                 childrenKnown = true
                 break
               case 'ref':
-                ref = getValue(initializer, visitor)
+                ref = getValue(initializer, visitor, factory)
                 break
               case 'key':
-                key = getValue(initializer, visitor)
+                key = getValue(initializer, visitor, factory)
                 break
               case PROP_ReCreate:
                 hasReCreateFlag = true
@@ -607,9 +606,9 @@ export default () => {
                 }
                 propsPropertyAssignments.push(
                   factory.createPropertyAssignment(
-                    getName(propName),
+                    factory.createStringLiteral(propName),
                     initializer
-                      ? getValue(initializer, visitor)
+                      ? getValue(initializer, visitor, factory)
                       : factory.createTrue()
                   )
                 )

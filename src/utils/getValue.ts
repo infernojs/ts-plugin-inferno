@@ -1,10 +1,10 @@
-import * as ts from "typescript";
+import {SyntaxKind} from "typescript";
 
-export default function getValue(node, visitor) {
-  if (node.kind === ts.SyntaxKind.StringLiteral) {
-    return ts.factory.createStringLiteral(node.text);
+export default function getValue(node, visitor, factory) {
+  if (node.kind === SyntaxKind.StringLiteral) {
+    return factory.createStringLiteral(node.text);
   }
-  if (node.kind === ts.SyntaxKind.JsxExpression) {
+  if (node.kind === SyntaxKind.JsxExpression) {
     return visitor(node.expression);
   }
 }
