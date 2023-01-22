@@ -24,6 +24,9 @@
     "overwrite-references": "ts-node tests/overwriteReferences.ts",
     "prepublishOnly": "rimraf dist && tsc"
   },
+  "engines": {
+    "node": ">=16"
+  },
   "author": "Deam Hansen",
   "license": "MIT",
   "dependencies": {
