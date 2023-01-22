@@ -1,4 +1,11 @@
-import * as ts from 'typescript'
+import {
+  createCompilerHost, createProgram,
+  getDefaultCompilerOptions,
+  JsxEmit,
+  ModuleKind,
+  ModuleResolutionKind,
+  ScriptTarget
+} from 'typescript'
 import { sync as globSync } from 'glob'
 import transform from '../src'
 import { resolve, basename } from 'path'
@@ -8,16 +15,16 @@ import { mkdirpSync } from 'fs-extra'
 
 // Target is ES5 and module is UMD
 const config = {
-  ...ts.getDefaultCompilerOptions(),
+  ...getDefaultCompilerOptions(),
   experimentalDecorators: true,
-  jsx: ts.JsxEmit.Preserve,
-  module: ts.ModuleKind.CommonJS,
-  moduleResolution: ts.ModuleResolutionKind.NodeJs,
+  jsx: JsxEmit.Preserve,
+  module: ModuleKind.CommonJS,
+  moduleResolution: ModuleResolutionKind.NodeJs,
   noEmitOnError: false,
   noUnusedLocals: true,
   noUnusedParameters: true,
   stripInternal: true,
-  target: ts.ScriptTarget.ES5,
+  target: ScriptTarget.ES5,
   compilerOptions: {
     importsNotUsedAsValues: ['remove'],
   }
@@ -25,14 +32,14 @@ const config = {
 
 // Target is ES2015 (same as ES6)
 const configES6 = {
-  ...ts.getDefaultCompilerOptions(),
+  ...getDefaultCompilerOptions(),
   experimentalDecorators: true,
-  jsx: ts.JsxEmit.Preserve,
+  jsx: JsxEmit.Preserve,
   noEmitOnError: false,
   noUnusedLocals: true,
   noUnusedParameters: true,
   stripInternal: true,
-  target: ts.ScriptTarget.ES2015,
+  target: ScriptTarget.ES2015,
   compilerOptions: {
     importsNotUsedAsValues: ['remove'],
   }
@@ -40,8 +47,8 @@ const configES6 = {
 
 function compile(path: string, callback) {
   const files = globSync(path)
-  const compilerHost = ts.createCompilerHost(config)
-  const program = ts.createProgram(files, config, compilerHost)
+  const compilerHost = createCompilerHost(config)
+  const program = createProgram(files, config, compilerHost)
 
   program.emit(undefined, compare(), undefined, undefined, {
     before: [transform()],
@@ -52,8 +59,8 @@ function compile(path: string, callback) {
 
 function compileES6(path: string, callback) {
   const files = globSync(path)
-  const compilerHost = ts.createCompilerHost(configES6)
-  const program = ts.createProgram(files, configES6, compilerHost)
+  const compilerHost = createCompilerHost(configES6)
+  const program = createProgram(files, configES6, compilerHost)
 
   program.emit(undefined, compare('ES6'), undefined, undefined, {
     before: [transform()],

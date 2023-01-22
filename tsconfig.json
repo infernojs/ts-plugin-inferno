@@ -1,8 +1,10 @@
 {
     "compileOnSave": true,
     "compilerOptions": {
-        "target": "es5",
-        "module": "commonjs",
+        "lib": ["es2021"],
+        "module": "CommonJS",
+        "target": "es2021",
+        "forceConsistentCasingInFileNames": true,
         "declaration": true,
         "experimentalDecorators": true,
         "moduleResolution": "node",

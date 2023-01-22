@@ -36,7 +36,7 @@ export default function createAssignHelper(
     attributesSegments
   );
 
-  function getHelperName(name) {
+  function getHelperName(name: string) {
     return setEmitFlags(
         factory.createIdentifier(name),
         EmitFlags.HelperName | EmitFlags.AdviseOnEmitNode

@@ -1,5 +1,13 @@
-import * as ts from 'typescript'
-
+import {
+  Expression,
+  ImportSpecifier, JsxAttributeLike, JsxChild, JsxElement, JsxEmit, JsxExpression, JsxFragment, JsxSelfClosingElement,
+  Node, NodeArray,
+  SourceFile,
+  SyntaxKind,
+  TransformationContext, Transformer, transpile,
+  visitEachChild, visitNode,
+  VisitResult
+} from "typescript";
 import { VNodeFlags, ChildFlags } from './utils/flags'
 import isComponent from './utils/isComponent'
 import isFragment from './utils/isFragment'
@@ -10,7 +18,6 @@ import isNodeNull from './utils/isNodeNull'
 import handleWhiteSpace from './utils/handleWhiteSpace'
 import vNodeTypes from './utils/vNodeTypes'
 import {updateSourceFile} from './updateSourceFile'
-let NULL
 
 // All special attributes
 let PROP_HasKeyedChildren = '$HasKeyedChildren'
@@ -28,15 +35,15 @@ export type Mutable<T extends object> = { -readonly [K in keyof T]: T[K] };
 export const POSSIBLE_IMPORTS_TO_ADD = ['createFragment', 'createVNode', 'createComponentVNode', 'createTextVNode', 'normalizeProps'];
 
 export default () => {
-  return (context: ts.TransformationContext): ts.Transformer<ts.SourceFile> => {
+  return (context: TransformationContext): Transformer<SourceFile> => {
     const {factory} = context;
 
-    return (sourceFile: ts.SourceFile) => {
+    return (sourceFile: SourceFile) => {
       if (sourceFile.isDeclarationFile) {
         return sourceFile
       }
 
-      const importSpecifiers = new Map<string, ts.ImportSpecifier>();
+      const importSpecifiers = new Map<string, ImportSpecifier>();
 
       for (const name of POSSIBLE_IMPORTS_TO_ADD) {
         importSpecifiers.set(
@@ -52,30 +59,30 @@ export default () => {
       context['createTextVNode'] = false
       context['normalizeProps'] = false
 
-      const newSourceFile = ts.visitEachChild(sourceFile, visitor, context)
+      const newSourceFile = visitEachChild(sourceFile, visitor, context)
 
       return updateSourceFile(newSourceFile, context)
     }
 
-    function getImportSpecifier(name: 'createFragment' | 'createVNode' | 'createComponentVNode' | 'createTextVNode' | 'normalizeProps'): ts.Expression {
+    function getImportSpecifier(name: 'createFragment' | 'createVNode' | 'createComponentVNode' | 'createTextVNode' | 'normalizeProps'): Expression {
         return context['infernoImportSpecifiers'].get(name).name;
     }
 
-    function visitor(node: ts.Node): ts.VisitResult<ts.Node> {
+    function visitor(node: Node): VisitResult<Node> {
       switch (node.kind) {
-        case ts.SyntaxKind.JsxFragment:
-          return createFragment((<ts.JsxFragment>node).children)
+        case SyntaxKind.JsxFragment:
+          return createFragment((<JsxFragment>node).children)
 
-        case ts.SyntaxKind.JsxElement:
+        case SyntaxKind.JsxElement:
           return createVNode(
-            <ts.JsxElement>node,
-            (<ts.JsxElement>node).children
+            <JsxElement>node,
+            (<JsxElement>node).children
           )
 
-        case ts.SyntaxKind.JsxSelfClosingElement:
-          return createVNode(<ts.JsxSelfClosingElement>node)
+        case SyntaxKind.JsxSelfClosingElement:
+          return createVNode(<JsxSelfClosingElement>node)
 
-        case ts.SyntaxKind.JsxText:
+        case SyntaxKind.JsxText:
           let text = handleWhiteSpace(node.getFullText())
 
           if (text !== '') {
@@ -86,22 +93,21 @@ export default () => {
              */
             return factory.createStringLiteral(
               JSON.parse(
-                ts
-                  .transpile(`<>${text}</>`, { jsx: ts.JsxEmit.React })
+                  transpile(`<>${text}</>`, { jsx: JsxEmit.React })
                   .replace(/^[\s\S]*?("[\s\S]*")[\s\S]*?$/, '$1')
               )
             )
           }
           break
 
-        case ts.SyntaxKind.JsxExpression:
-          if ((<ts.JsxExpression>node).expression) {
-            return ts.visitNode((<ts.JsxExpression>node).expression, visitor)
+        case SyntaxKind.JsxExpression:
+          if ((<JsxExpression>node).expression) {
+            return visitNode((<JsxExpression>node).expression, visitor)
           }
           break
 
         default:
-          return ts.visitEachChild(node, visitor, context)
+          return visitEachChild(node, visitor, context)
       }
     }
 
@@ -110,7 +116,7 @@ export default () => {
       for (var j = 0; j < vChildren.elements.length; j++) {
         var aChild = vChildren.elements[j]
 
-        if (aChild.kind === ts.SyntaxKind.StringLiteral) {
+        if (aChild.kind === SyntaxKind.StringLiteral) {
           vChildren.elements[j] = factory.createCallExpression(
               getImportSpecifier('createTextVNode'),
             [],
@@ -128,7 +134,7 @@ export default () => {
       if (vChildren.elements) {
         return addCreateTextVNodeCalls(vChildren)
       }
-      if (vChildren.kind === ts.SyntaxKind.StringLiteral) {
+      if (vChildren.kind === SyntaxKind.StringLiteral) {
         return factory.createCallExpression(
             getImportSpecifier('createTextVNode'),
           [],
@@ -149,14 +155,14 @@ export default () => {
           childFlags === ChildFlags.HasNonKeyedChildren ||
           childFlags === ChildFlags.HasKeyedChildren ||
           childFlags === ChildFlags.UnknownChildren ||
-          children.kind === ts.SyntaxKind.ArrayLiteralExpression
+          children.kind === SyntaxKind.ArrayLiteralExpression
         ) {
           args.push(children)
         } else {
           args.push(factory.createArrayLiteralExpression([children]))
         }
       } else if (hasChildFlags || hasKey) {
-        args.push(NULL)
+        args.push(null)
       }
 
       if (hasChildFlags) {
@@ -176,7 +182,7 @@ export default () => {
       return args
     }
 
-    function createFragment(children?: ts.NodeArray<ts.JsxChild>) {
+    function createFragment(children?: NodeArray<JsxChild>) {
       let childrenResults = getVNodeChildren(children)
       let vChildren = childrenResults.children
       let childFlags
@@ -194,7 +200,7 @@ export default () => {
         childFlags = ChildFlags.UnknownChildren
       }
 
-      if (vChildren && vChildren !== NULL && childrenResults.foundText) {
+      if (vChildren && vChildren !== null && childrenResults.foundText) {
         vChildren = transformTextNodes(vChildren)
       }
 
@@ -208,8 +214,8 @@ export default () => {
     }
 
     function createVNode(
-      node: ts.JsxElement | ts.JsxSelfClosingElement,
-      children?: ts.NodeArray<ts.JsxChild>
+      node: JsxElement | JsxSelfClosingElement,
+      children?: NodeArray<JsxChild>
     ) {
       let vType
       let vProps
@@ -218,7 +224,7 @@ export default () => {
       let text
 
       if (children) {
-        let openingElement = (<ts.JsxElement>node).openingElement
+        let openingElement = (<JsxElement>node).openingElement
         vType = getVNodeType(openingElement.tagName)
         vProps = getVNodeProps(
           openingElement.attributes.properties,
@@ -227,9 +233,9 @@ export default () => {
         childrenResults = getVNodeChildren(children)
         vChildren = childrenResults.children
       } else {
-        vType = getVNodeType((<ts.JsxSelfClosingElement>node).tagName)
+        vType = getVNodeType((<JsxSelfClosingElement>node).tagName)
         vProps = getVNodeProps(
-          (<ts.JsxSelfClosingElement>node).attributes.properties,
+          (<JsxSelfClosingElement>node).attributes.properties,
           vType.vNodeType === TYPE_COMPONENT
         )
       }
@@ -251,7 +257,7 @@ export default () => {
         if (vChildren) {
           if (
             !(
-              vChildren.kind === ts.SyntaxKind.ArrayLiteralExpression &&
+              vChildren.kind === SyntaxKind.ArrayLiteralExpression &&
               vChildren.elements.length === 0
             )
           ) {
@@ -274,16 +280,16 @@ export default () => {
 
             vProps.props[0] = props
           }
-          vChildren = NULL
+          vChildren = null
         }
       } else {
         if (
           ((vChildren &&
-            vChildren.kind === ts.SyntaxKind.ArrayLiteralExpression) ||
+            vChildren.kind === SyntaxKind.ArrayLiteralExpression) ||
             !vChildren) &&
           vProps.propChildren
         ) {
-          if (vProps.propChildren.kind === ts.SyntaxKind.StringLiteral) {
+          if (vProps.propChildren.kind === SyntaxKind.StringLiteral) {
             text = handleWhiteSpace(vProps.propChildren.text)
             if (text !== '') {
               if (vType.vNodeType !== TYPE_FRAGMENT) {
@@ -293,11 +299,11 @@ export default () => {
 
               vChildren = factory.createStringLiteral(text)
             }
-          } else if (vProps.propChildren.kind === ts.SyntaxKind.JsxExpression) {
+          } else if (vProps.propChildren.kind === SyntaxKind.JsxExpression) {
             if (
-              vProps.propChildren.expression.kind === ts.SyntaxKind.NullKeyword
+              vProps.propChildren.expression.kind === SyntaxKind.NullKeyword
             ) {
-              vChildren = NULL
+              vChildren = null
               childFlags = ChildFlags.HasInvalidChildren
             } else {
               vChildren = createVNode(
@@ -307,7 +313,7 @@ export default () => {
               childFlags = ChildFlags.HasVNodeChildren
             }
           } else {
-            vChildren = NULL
+            vChildren = null
             childFlags = ChildFlags.HasInvalidChildren
           }
         }
@@ -362,7 +368,7 @@ export default () => {
         }
       }
 
-      if (vChildren && vChildren !== NULL && childrenResults.foundText) {
+      if (vChildren && vChildren !== null && childrenResults.foundText) {
         vChildren = transformTextNodes(vChildren)
       }
 
@@ -476,7 +482,7 @@ export default () => {
       }
     }
 
-    function getVNodeProps(astProps: ts.NodeArray<ts.JsxAttributeLike>, isComponent) {
+    function getVNodeProps(astProps: NodeArray<JsxAttributeLike>, isComponent) {
       let key = null
       let ref = null
       let className = null
@@ -497,7 +503,7 @@ export default () => {
         let astProp = astProps[i]
         let initializer;
 
-        if (astProp.kind === ts.SyntaxKind.JsxSpreadAttribute) {
+        if (astProp.kind === SyntaxKind.JsxSpreadAttribute) {
           if (propsPropertyAssignments.length) {
             assignArgs.push(factory.createObjectLiteralExpression([...propsPropertyAssignments]))
 
@@ -623,13 +629,13 @@ export default () => {
 
       return {
         props: assignArgs,
-        key: key == null ? NULL : key,
-        ref: ref == null ? NULL : ref,
+        key: key == null ? null : key,
+        ref: ref == null ? null : ref,
         hasKeyedChildren: hasKeyedChildren,
         hasNonKeyedChildren: hasNonKeyedChildren,
         propChildren: propChildren,
         childrenKnown: childrenKnown,
-        className: className == null ? NULL : className,
+        className: className == null ? null : className,
         childFlags: childFlags,
         hasReCreateFlag: hasReCreateFlag,
         needsNormalization: needsNormalization,
@@ -648,10 +654,10 @@ export default () => {
         let child = astChildren[i]
         let vNode = visitor(child)
 
-        if (child.kind === ts.SyntaxKind.JsxExpression) {
+        if (child.kind === SyntaxKind.JsxExpression) {
           requiresNormalization = true
         } else if (
-          child.kind === ts.SyntaxKind.JsxText &&
+          child.kind === SyntaxKind.JsxText &&
           handleWhiteSpace(child.getText()) !== ''
         ) {
           foundText = true
@@ -699,7 +705,7 @@ export default () => {
       }
     }
 
-    function createComponentVNodeArgs(flags, type, props, key, ref) {
+    function createComponentVNodeArgs(flags: string, type: any, props: Expression[], key: any, ref: any) {
       let args = []
       let hasProps = props.length > 0
       let hasKey = !isNodeNull(key)
