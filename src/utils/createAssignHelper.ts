@@ -2,10 +2,10 @@ import {EmitFlags, EmitHelper, Expression, ScriptTarget, setEmitFlags, Transform
 
 
 const assignHelper: EmitHelper = {
-  name: "typescript:assign",
-  scoped: false,
-  priority: 1,
-  text: `
+    name: "typescript:assign",
+    scoped: false,
+    priority: 1,
+    text: `
         var __assign = (this && this.__assign) || Object.assign || function(t) {
             for (var s, i = 1, n = argumenlength; i < n; i++) {
                 s = arguments[i];
@@ -17,29 +17,29 @@ const assignHelper: EmitHelper = {
 };
 
 export default function createAssignHelper(
-  context: TransformationContext,
-  attributesSegments: Expression[]
+    context: TransformationContext,
+    attributesSegments: Expression[]
 ) {
-  const {factory} = context;
+    const {factory} = context;
 
-  if (context.getCompilerOptions().target >= ScriptTarget.ES2015) {
+    if (context.getCompilerOptions().target >= ScriptTarget.ES2015) {
+        return factory.createCallExpression(
+            factory.createPropertyAccessExpression(factory.createIdentifier("Object"), "assign"),
+            undefined,
+            attributesSegments
+        );
+    }
+    context.requestEmitHelper(assignHelper);
     return factory.createCallExpression(
-      factory.createPropertyAccessExpression(factory.createIdentifier("Object"), "assign"),
-      undefined,
-      attributesSegments
+        getHelperName("__assign"),
+        /*typeArguments*/ undefined,
+        attributesSegments
     );
-  }
-  context.requestEmitHelper(assignHelper);
-  return factory.createCallExpression(
-    getHelperName("__assign"),
-    /*typeArguments*/ undefined,
-    attributesSegments
-  );
 
-  function getHelperName(name: string) {
-    return setEmitFlags(
-        factory.createIdentifier(name),
-        EmitFlags.HelperName | EmitFlags.AdviseOnEmitNode
-    );
-  }
+    function getHelperName(name: string) {
+        return setEmitFlags(
+            factory.createIdentifier(name),
+            EmitFlags.HelperName | EmitFlags.AdviseOnEmitNode
+        );
+    }
 }

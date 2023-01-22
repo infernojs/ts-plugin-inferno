@@ -1,6 +1,6 @@
 import * as ts from "typescript";
-import {POSSIBLE_IMPORTS_TO_ADD} from "./index";
 import {isImportDeclaration, StringLiteral} from "typescript";
+import {POSSIBLE_IMPORTS_TO_ADD} from "./index";
 
 
 export function handleCjsModules(sourceFile: ts.SourceFile, context: ts.TransformationContext) {

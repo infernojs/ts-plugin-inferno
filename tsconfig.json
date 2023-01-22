@@ -1,7 +1,6 @@
 {
     "compileOnSave": true,
     "compilerOptions": {
-        "lib": ["es2021"],
         "module": "CommonJS",
         "target": "es2021",
         "forceConsistentCasingInFileNames": true,
