@@ -6,8 +6,8 @@ const {
   WebIndexPlugin,
   QuantumPlugin,
 } = require('fuse-box')
+const transformInferno = require('ts-plugin-inferno')
 
-const transformInferno = require('./../../dist/index.js').default
 let fuse, app
 let isProduction = false
 
@@ -20,7 +20,7 @@ Sparky.task('config', _ => {
     cache: !isProduction,
     sourceMaps: !isProduction,
     transformers: {
-      before: [transformInferno()],
+      before: [transformInferno.default()],
     },
     plugins: [
       EnvPlugin({ NODE_ENV: isProduction ? 'production' : 'development' }),
