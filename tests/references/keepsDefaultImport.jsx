@@ -28,7 +28,7 @@ var MyComponent = /** @class */ (function (_super) {
         return _this;
     }
     MyComponent.prototype.render = function () {
-        return (createVNode(1, "div", null, [createVNode(1, "h1", null, "Welcome to Inferno ".concat(inferno_1.version, " TSX ").concat(this.tsxVersion), 0), createComponentVNode(2, Incrementer_1.Incrementer, { "name": "Crazy button" })], 4));
+        return (createVNode(1, "div", null, [createVNode(1, "h1", null, "Welcome to Inferno ".concat(inferno_1.default.version, " TSX ").concat(this.tsxVersion), 0), createComponentVNode(2, Incrementer_1.Incrementer, { "name": "Crazy button" })], 4));
     };
     return MyComponent;
 }(inferno_1.Component));

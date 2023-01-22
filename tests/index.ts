@@ -11,7 +11,7 @@ const config = {
   ...ts.getDefaultCompilerOptions(),
   experimentalDecorators: true,
   jsx: ts.JsxEmit.Preserve,
-  module: ts.ModuleKind.UMD,
+  module: ts.ModuleKind.CommonJS,
   moduleResolution: ts.ModuleResolutionKind.NodeJs,
   noEmitOnError: false,
   noUnusedLocals: true,

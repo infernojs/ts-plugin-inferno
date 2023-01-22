@@ -1,3 +1,6 @@
-import * as inferno from "inferno";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.br = void 0;
+var inferno = require("inferno");
 var createVNode = inferno.createVNode;
-createVNode(1, "br", null, "foobar", 16);
+exports.br = createVNode(1, "br", null, "foobar", 16);

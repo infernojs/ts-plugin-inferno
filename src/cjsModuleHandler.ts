@@ -1,95 +1,70 @@
 import * as ts from "typescript";
 import {POSSIBLE_IMPORTS_TO_ADD} from "./index";
-import {isImportDeclaration} from "./utils/isImportDeclaration";
-import {isNamedImports} from "./utils/isNamedImports";
-import {isMutable} from "./utils/isMutable";
+import {isImportDeclaration, StringLiteral} from "typescript";
 
 
 export function handleCjsModules(sourceFile: ts.SourceFile, context: ts.TransformationContext) {
     const factory = context.factory;
-    const specifiersToAdd: ts.ImportSpecifier[] = [];
-    let statements = sourceFile.statements;
-    const matchedRequireStatementIndex = statements
-        .findIndex(s => ts.isExternalModuleReference(s)
-            && (s.expression as ts.StringLiteral).text === 'inferno'
-        );
-
-    // Inferno import statement already exists, and we do not want to add imports for functions already imported, so removing those from context.
-    if (matchedRequireStatementIndex !== -1) {
-        ((statements[matchedRequireStatementIndex] as ts.ExternalModuleReference).expression.namedBindings as ts.NamedImports).elements.forEach(e => {
-            context[e.name.text] = false;
-        });
-    }
+    let statements = sourceFile.statements as any;
+    const specifiersToAdd: string[] = [];
 
     for (const name of POSSIBLE_IMPORTS_TO_ADD) {
         if (context[name]) {
-            specifiersToAdd.push(context['infernoImportSpecifiers'].get(name));
+            specifiersToAdd.push(context['infernoImportSpecifiers'].get(name).name.text);
         }
     }
 
     if (specifiersToAdd.length > 0) {
-        if (matchedRequireStatementIndex === -1) {
-            const importStatement = factory.createImportDeclaration(
-                undefined,
-                factory.createImportClause(
-                    false,
-                    undefined,
-                    factory.createNamedImports(specifiersToAdd)
-                ),
-                factory.createStringLiteral('inferno')
+        const matchedImportIdx = statements
+            .findIndex(s => isImportDeclaration(s)
+                && (s.moduleSpecifier as StringLiteral).text === 'inferno'
             );
 
-            (importStatement.parent as any) = sourceFile as any
+        let infernoIdentifier = factory.createIdentifier(matchedImportIdx === -1 ? "inferno" : "inferno_1")
 
-            statements = factory.createNodeArray([
-                importStatement,
-                ...statements
-            ])
-        } else {
-            const statement = statements[matchedRequireStatementIndex];
+        for (const specifier of specifiersToAdd) {
+            let varStatement = factory.createVariableStatement(undefined, [
+                factory.createVariableDeclaration(
+                    specifier,
+                    undefined,
+                    undefined,
+                    factory.createPropertyAccessExpression(
+                        infernoIdentifier,
+                        specifier
+                    )
+                )
+            ]);
 
-            if (!isImportDeclaration(statement)) {
-                throw new Error('Unexpected non-import statement');
+            if (matchedImportIdx === -1) {
+                statements.unshift(varStatement)
+            } else {
+                statements.splice(matchedImportIdx + 1, 0, varStatement)
             }
-            const importDeclaration = statement as ts.ImportDeclaration;
-            const namedBindings = importDeclaration.importClause.namedBindings;
-
-            if (!namedBindings) {
-                throw new Error('Unexpected import statement without import bindings');
-            }
-
-            if (!isNamedImports(namedBindings)) {
-                throw new Error('Unexpected import statement with non-named import bindings');
-            }
-
-            if (!isMutable(namedBindings)) {
-                throw new Error('Unexpected immutable import statement');
-            }
-
-            const newNamedImports = namedBindings.elements.concat(specifiersToAdd);
-            const updatedNamedImports = factory.updateNamedImports(namedBindings, newNamedImports);
-
-            const updatedImportDecl = factory.updateImportDeclaration(
-                importDeclaration,
-                importDeclaration.modifiers,
-                factory.updateImportClause(
-                    importDeclaration.importClause,
-                    false,
-                    importDeclaration.importClause?.name,
-                    updatedNamedImports
-                ),
-                importDeclaration.moduleSpecifier,
-                importDeclaration.assertClause
-            )
-
-            statements = factory.createNodeArray([
-                ...statements.slice(0, matchedRequireStatementIndex),
-                updatedImportDecl,
-                ...statements.slice(matchedRequireStatementIndex + 1)
-            ])
         }
 
-        return factory.updateSourceFile(sourceFile, statements);
+        if (matchedImportIdx === -1) {
+            // Adding import statement does not get re-compiled in typescript core
+            // So directly add require statement
+            statements.unshift(
+                factory.createVariableStatement(
+                    undefined,
+                    factory.createVariableDeclarationList([
+                        factory.createVariableDeclaration(
+                            "inferno",
+                            undefined,
+                            undefined,
+                            factory.createCallExpression(
+                                factory.createIdentifier("require"),
+                                [],
+                                [factory.createStringLiteral("inferno")]
+                            )
+                        )
+                    ]),
+                )
+            );
+        }
+
+        return factory.updateSourceFile(sourceFile, statements, false);
     }
 
     return sourceFile

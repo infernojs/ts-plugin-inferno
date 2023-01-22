@@ -1,3 +1,3 @@
-import * as inferno from "inferno";
+var inferno = require("inferno");
 var createComponentVNode = inferno.createComponentVNode;
 createComponentVNode(2, Com, { "children": "ab" });

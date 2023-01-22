@@ -2,8 +2,12 @@ import { sync as globSync } from "glob";
 import { resolve, basename } from "path";
 import { copy } from "fs-extra";
 
-globSync(resolve(__dirname, "temp/*.jsx")).map(filePath => {
-  const referencePath = resolve(__dirname, "references/" + basename(filePath));
+console.log("Updating test snapshots...")
+
+globSync("tests/temp/*.jsx").map(filePath => {
+  const referencePath = resolve("tests/references/" + basename(filePath));
+
+  console.log(referencePath)
 
   copy(filePath, referencePath, err => {
     if (err) return console.error(err);
@@ -12,8 +16,10 @@ globSync(resolve(__dirname, "temp/*.jsx")).map(filePath => {
   });
 });
 
-globSync(resolve(__dirname, "tempES6/*.jsx")).map(filePath => {
-  const referencePath = resolve(__dirname, "referencesES6/" + basename(filePath));
+globSync("tests/tempES6/*.jsx").map(filePath => {
+  const referencePath = resolve("tests/referencesES6/" + basename(filePath));
+
+  console.log(referencePath)
 
   copy(filePath, referencePath, err => {
     if (err) return console.error(err);

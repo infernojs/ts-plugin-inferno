@@ -1,4 +1,4 @@
-import * as inferno from "inferno";
+var inferno = require("inferno");
 var createComponentVNode = inferno.createComponentVNode;
 var createVNode = inferno.createVNode;
 function MyComponent(props) {

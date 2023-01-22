@@ -77,7 +77,7 @@ export function handleEcmaModules(sourceFile: SourceFile, context: Transformatio
             ])
         }
 
-        return factory.updateSourceFile(sourceFile, statements);
+        return factory.updateSourceFile(sourceFile, statements, false);
     }
 
     return sourceFile
