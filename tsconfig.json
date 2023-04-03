@@ -11,7 +11,8 @@
         "noUnusedParameters": true,
         "stripInternal": true,
         "jsx": "preserve",
-        "outDir": "dist"
+        "outDir": "dist",
+        "newLine": "lf"
     },
     "include": [
         "src/**/*"
