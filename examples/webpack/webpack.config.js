@@ -23,7 +23,7 @@ module.exports = {
         loader: 'ts-loader',
         options: {
           getCustomTransformers: () => ({
-            before: [transformInferno()],
+            after: [transformInferno()],
           }),
         },
       },

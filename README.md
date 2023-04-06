@@ -16,10 +16,26 @@ This is a plugin for Typescript compiler that compiles Typescript JSX syntax ( T
 ```javascript
 const transformInferno = require('ts-plugin-inferno').default
 
-transformInferno()
+// Typescript compiler options
+options: {
+    getCustomTransformers: () => ({
+        after: [transformInferno()],
+    }),
+},
 ```
 
 It's different depending on what bundler you're using. Please check the examples folder.
+
+## Breaking change in v6.0.0
+
+
+Since version v6.0.0 this plugin only supports Javascript runtime environment where `Object.assign` is available.
+It's also highly recommended to set typescript settings as follows
+
+- `compilerOptions.module` to `ES2015` or `ES6` or higher.
+- `commpilerOptions.target` to `ES2015` or higher
+
+
 
 ## Usage with FuseBox
 

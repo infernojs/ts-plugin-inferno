@@ -20,7 +20,7 @@ Sparky.task('config', _ => {
     cache: !isProduction,
     sourceMaps: !isProduction,
     transformers: {
-      before: [transformInferno.default()],
+      after: [transformInferno.default()],
     },
     plugins: [
       EnvPlugin({ NODE_ENV: isProduction ? 'production' : 'development' }),

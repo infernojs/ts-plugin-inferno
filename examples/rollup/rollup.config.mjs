@@ -10,8 +10,7 @@ import terser from '@rollup/plugin-terser'
 const isProd = process.env.NODE_ENV === 'production'
 
 const tsTransformer = () => ({
-  before: [transformInferno.default()],
-  after: [],
+  after: [transformInferno.default()]
 })
 
 const config = {
