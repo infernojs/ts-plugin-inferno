@@ -14,10 +14,11 @@ var __extends = (this && this.__extends) || (function () {
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
 })();
+var $inferno = require("inferno");
+var createComponentVNode = $inferno.createComponentVNode;
+var createVNode = $inferno.createVNode;
 Object.defineProperty(exports, "__esModule", { value: true });
 var inferno_1 = require("inferno");
-var createComponentVNode = inferno_1.createComponentVNode;
-var createVNode = inferno_1.createVNode;
 var Incrementer_1 = require("./components/Incrementer");
 var container = document.getElementById("app");
 var MyComponent = /** @class */ (function (_super) {

@@ -1,5 +1,5 @@
 import * as ts from "typescript";
-import {isImportDeclaration, StringLiteral} from "typescript";
+import {isExpressionStatement} from "typescript";
 import {POSSIBLE_IMPORTS_TO_ADD} from "./index";
 
 
@@ -15,12 +15,11 @@ export function handleCjsModules(sourceFile: ts.SourceFile, context: ts.Transfor
     }
 
     if (specifiersToAdd.length > 0) {
-        const matchedImportIdx = statements
-            .findIndex(s => isImportDeclaration(s)
-                && (s.moduleSpecifier as StringLiteral).text === 'inferno'
-            );
+        const matchedUseStrictStatement = statements.findIndex(
+            s => isExpressionStatement(s) && (s as any).expression?.text === 'use strict'
+        );
 
-        let infernoIdentifier = factory.createIdentifier(matchedImportIdx === -1 ? "inferno" : "inferno_1")
+        let infernoIdentifier = factory.createIdentifier("$inferno")
 
         for (const specifier of specifiersToAdd) {
             let varStatement = factory.createVariableStatement(undefined, [
@@ -35,33 +34,33 @@ export function handleCjsModules(sourceFile: ts.SourceFile, context: ts.Transfor
                 )
             ]);
 
-            if (matchedImportIdx === -1) {
+            if (matchedUseStrictStatement === -1) {
                 statements.unshift(varStatement)
             } else {
-                statements.splice(matchedImportIdx + 1, 0, varStatement)
+                statements.splice(matchedUseStrictStatement + 1, 0, varStatement)
             }
         }
 
-        if (matchedImportIdx === -1) {
-            // Adding import statement does not get re-compiled in typescript core
-            // So directly add require statement
-            statements.unshift(
-                factory.createVariableStatement(
+        const reqStatement = factory.createVariableStatement(
+            undefined,
+            factory.createVariableDeclarationList([
+                factory.createVariableDeclaration(
+                    "$inferno",
                     undefined,
-                    factory.createVariableDeclarationList([
-                        factory.createVariableDeclaration(
-                            "inferno",
-                            undefined,
-                            undefined,
-                            factory.createCallExpression(
-                                factory.createIdentifier("require"),
-                                [],
-                                [factory.createStringLiteral("inferno")]
-                            )
-                        )
-                    ]),
+                    undefined,
+                    factory.createCallExpression(
+                        factory.createIdentifier("require"),
+                        [],
+                        [factory.createStringLiteral("inferno")]
+                    )
                 )
-            );
+            ]),
+        )
+
+        if (matchedUseStrictStatement === -1) {
+            statements.unshift(reqStatement)
+        } else {
+            statements.splice(matchedUseStrictStatement + 1, 0, reqStatement)
         }
 
         return factory.updateSourceFile(sourceFile, statements, false);

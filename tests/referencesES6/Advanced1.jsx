@@ -1,4 +1,4 @@
-import { Component, render, ComponentType, createVNode, createComponentVNode } from 'inferno';
+import { Component, render, createVNode, createComponentVNode } from 'inferno';
 class GenericPrinter extends Component {
     constructor(props) {
         super(props);

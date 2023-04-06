@@ -48,7 +48,7 @@ export default () => {
     return (context: TransformationContext): Transformer<SourceFile> => {
         const {factory} = context;
 
-        return (sourceFile: SourceFile) => {
+        return ((sourceFile: SourceFile) => {
             if (sourceFile.isDeclarationFile) {
                 return sourceFile
             }
@@ -72,7 +72,7 @@ export default () => {
             const newSourceFile = visitEachChild(sourceFile, visitor, context)
 
             return updateSourceFile(newSourceFile, context)
-        }
+        })
 
         function getImportSpecifier(name: 'createFragment' | 'createVNode' | 'createComponentVNode' | 'createTextVNode' | 'normalizeProps'): Expression {
             return context['infernoImportSpecifiers'].get(name).name;

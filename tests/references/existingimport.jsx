@@ -14,11 +14,12 @@ var __extends = (this && this.__extends) || (function () {
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
 })();
+var $inferno = require("inferno");
+var createTextVNode = $inferno.createTextVNode;
+var createVNode = $inferno.createVNode;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CustomerImportView = void 0;
 var inferno_1 = require("inferno");
-var createTextVNode = inferno_1.createTextVNode;
-var createVNode = inferno_1.createVNode;
 var CustomerImportView = /** @class */ (function (_super) {
     __extends(CustomerImportView, _super);
     function CustomerImportView() {

@@ -1,3 +1,3 @@
-var inferno = require("inferno");
-var createFragment = inferno.createFragment;
+var $inferno = require("inferno");
+var createFragment = $inferno.createFragment;
 createFragment(dynamic, 0);
