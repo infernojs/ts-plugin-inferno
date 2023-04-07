@@ -10,12 +10,12 @@
   "author": "Deam Hansen",
   "license": "MIT",
   "dependencies": {
-    "inferno": "^8.0.5"
+    "inferno": "^8.1.0"
   },
   "devDependencies": {
     "fuse-box": "^3.7.1",
-    "ts-plugin-inferno": "^1.1.0",
-    "typescript": "^4.9.4",
+    "ts-plugin-inferno": "^6.0.0",
+    "typescript": "^5.0.3",
     "uglify-es": "^3.3.9"
   }
 }

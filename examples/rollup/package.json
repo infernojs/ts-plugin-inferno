@@ -9,20 +9,20 @@
     "build": "rimraf dist && cross-env NODE_ENV=production rollup -c"
   },
   "dependencies": {
-    "inferno": "^8.0.5"
+    "inferno": "^8.1.0"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^24.0.1",
-    "@rollup/plugin-node-resolve": "^15.0.1",
+    "@rollup/plugin-node-resolve": "^15.0.2",
     "@rollup/plugin-replace": "^5.0.2",
-    "@rollup/plugin-terser": "^0.3.0",
+    "@rollup/plugin-terser": "^0.4.0",
     "cross-env": "^7.0.3",
-    "rimraf": "^4.1.1",
-    "rollup": "^3.10.1",
+    "rimraf": "^4.4.1",
+    "rollup": "^3.20.2",
     "rollup-plugin-livereload": "^2.0.5",
     "rollup-plugin-serve": "^2.0.2",
     "rollup-plugin-typescript2": "^0.34.1",
-    "ts-plugin-inferno": "^1.1.0",
-    "typescript": "^4.9.4"
+    "ts-plugin-inferno": "^6.0.0",
+    "typescript": "^5.0.3"
   }
 }
