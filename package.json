@@ -1,6 +1,6 @@
 {
   "name": "ts-plugin-inferno",
-  "version": "6.0.0",
+  "version": "6.0.1",
   "description": "A typescript transformer for InfernoJS",
   "bugs": {
     "url": "https://github.com/infernojs/ts-plugin-inferno/issues"
@@ -27,7 +27,7 @@
   "engines": {
     "node": ">=16"
   },
-  "author": "Deam Hansen",
+  "author": "Deam Hansen, Sampo Kivistö <havunen>",
   "license": "MIT",
   "dependencies": {
     "typescript": "^5.2.2"
