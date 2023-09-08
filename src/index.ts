@@ -1,23 +1,23 @@
 import {
-  Expression,
-  ImportSpecifier,
-  JsxAttributeLike,
-  JsxChild,
-  JsxElement,
-  JsxEmit,
-  JsxExpression,
-  JsxFragment,
-  JsxSelfClosingElement,
-  Node,
-  NodeArray,
-  SourceFile,
-  SyntaxKind,
-  TransformationContext,
-  Transformer,
-  transpile,
-  visitEachChild,
-  visitNode,
-  VisitResult
+    Expression,
+    ImportSpecifier,
+    JsxAttributeLike,
+    JsxChild,
+    JsxElement,
+    JsxEmit,
+    JsxExpression,
+    JsxFragment,
+    JsxSelfClosingElement,
+    Node,
+    NodeArray,
+    SourceFile,
+    SyntaxKind,
+    TransformationContext,
+    Transformer,
+    transpile,
+    visitEachChild,
+    visitNode,
+    VisitResult
 } from "typescript";
 import {ChildFlags, VNodeFlags} from './utils/flags'
 import isComponent from './utils/isComponent'
@@ -43,6 +43,15 @@ const TYPE_COMPONENT = 1
 const TYPE_FRAGMENT = 2
 
 export const POSSIBLE_IMPORTS_TO_ADD = ['createFragment', 'createVNode', 'createComponentVNode', 'createTextVNode', 'normalizeProps'];
+
+function getPropertyName(astProp: any) {
+    // TypeScript@5.1 added in ts.JsxNamespacedName directly
+    // Following code makes the plugin compatible with TS5.1 and TS5.2
+    if (astProp.name.namespace === undefined) {
+        return astProp.name.text
+    }
+    return `${astProp.name.namespace}:${astProp.name.name}`
+}
 
 export default () => {
     return (context: TransformationContext): Transformer<SourceFile> => {
@@ -530,7 +539,7 @@ export default () => {
                     assignArgs.push(astProp.expression);
                 } else {
                     initializer = astProp.initializer
-                    let propName = astProp.name.text
+                    let propName = getPropertyName(astProp);
 
                     if (
                         !isComponent &&

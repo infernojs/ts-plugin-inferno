@@ -30,15 +30,15 @@
   "author": "Deam Hansen",
   "license": "MIT",
   "dependencies": {
-    "typescript": "^5.0.3"
+    "typescript": "^5.2.2"
   },
   "devDependencies": {
-    "@types/node": "^18.15.11",
+    "@types/node": "^20.5.9",
     "cross-env": "^7.0.3",
     "fs-extra": "^11.1.1",
-    "glob": "^9.3.4",
-    "inferno": "^8.1.0",
-    "rimraf": "^4.4.1",
+    "glob": "^10.3.4",
+    "inferno": "^8.2.2",
+    "rimraf": "^5.0.1",
     "ts-node": "^10.9.1"
   }
 }
