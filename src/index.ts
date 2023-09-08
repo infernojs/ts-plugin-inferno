@@ -50,7 +50,7 @@ function getPropertyName(astProp: any) {
     if (astProp.name.namespace === undefined) {
         return astProp.name.text
     }
-    return `${astProp.name.namespace}:${astProp.name.name}`
+    return `${astProp.name.namespace.text}:${astProp.name.name.text}`
 }
 
 export default () => {
