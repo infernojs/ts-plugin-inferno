@@ -6,7 +6,7 @@
         "forceConsistentCasingInFileNames": true,
         "declaration": true,
         "experimentalDecorators": true,
-        "moduleResolution": "node",
+        "moduleResolution": "Bundler",
         "noUnusedLocals": true,
         "noUnusedParameters": true,
         "stripInternal": true,
