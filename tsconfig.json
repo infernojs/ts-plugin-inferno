@@ -2,7 +2,7 @@
     "compileOnSave": true,
     "compilerOptions": {
         "module": "CommonJS",
-        "target": "es2021",
+        "target": "ESNext",
         "forceConsistentCasingInFileNames": true,
         "declaration": true,
         "experimentalDecorators": true,
