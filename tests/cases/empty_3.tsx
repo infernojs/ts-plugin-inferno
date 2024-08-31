@@ -1,0 +1,1 @@
+<NewComponent ref={} a={} className={} class={} a={} b c/>

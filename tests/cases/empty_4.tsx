@@ -1,0 +1,1 @@
+<svg key={} dominantBaseline clipRule={} capHeight={3}/>

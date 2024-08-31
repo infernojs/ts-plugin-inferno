@@ -5,6 +5,9 @@ export default function getValue(node, visitor, factory) {
         return factory.createStringLiteral(node.text);
     }
     if (node.kind === SyntaxKind.JsxExpression) {
+        if (!node.expression) {
+            return factory.createNull();
+        }
         return visitor(node.expression);
     }
 }

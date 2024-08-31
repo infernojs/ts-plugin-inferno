@@ -387,7 +387,7 @@ export default () => {
                 }
             }
 
-            if (vChildren && vChildren !== null && childrenResults.foundText) {
+            if (vChildren && childrenResults.foundText) {
                 vChildren = transformTextNodes(vChildren)
             }
 
@@ -576,7 +576,7 @@ export default () => {
                         propsPropertyAssignments.push(
                             factory.createPropertyAssignment(
                                 factory.createStringLiteral(svgAttributes[propName]),
-                                getValue(initializer, visitor, factory)
+                                initializer ? getValue(initializer, visitor, factory) : factory.createTrue()
                             )
                         )
                     } else {
@@ -614,10 +614,10 @@ export default () => {
                                 childrenKnown = true
                                 break
                             case 'ref':
-                                ref = getValue(initializer, visitor, factory)
+                                ref = initializer ? getValue(initializer, visitor, factory) : null
                                 break
                             case 'key':
-                                key = getValue(initializer, visitor, factory)
+                                key = initializer ? getValue(initializer, visitor, factory) : null
                                 break
                             case PROP_ReCreate:
                                 hasReCreateFlag = true
