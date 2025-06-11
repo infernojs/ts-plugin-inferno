@@ -1,0 +1,1 @@
+<Foobar strokeWidth="1px" fillOpacity="1"/>

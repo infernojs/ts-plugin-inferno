@@ -30,14 +30,14 @@
   "author": "Deam Hansen, Sampo Kivistö <havunen>",
   "license": "MIT",
   "dependencies": {
-    "typescript": "^5.5.4"
+    "typescript": "^5.8.3"
   },
   "devDependencies": {
-    "@types/node": "^22.5.1",
+    "@types/node": "^24.0.0",
     "cross-env": "^7.0.3",
-    "fs-extra": "^11.2.0",
-    "glob": "^11.0.0",
-    "inferno": "^8.2.3",
+    "fs-extra": "^11.3.0",
+    "glob": "^11.0.2",
+    "inferno": "^9.0.3",
     "rimraf": "^6.0.1",
     "ts-node": "^10.9.2"
   }
