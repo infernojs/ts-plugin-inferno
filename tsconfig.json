@@ -1,16 +1,19 @@
 {
     "compileOnSave": true,
     "compilerOptions": {
-        "module": "CommonJS",
+        "module": "Node16",
         "target": "ESNext",
         "forceConsistentCasingInFileNames": true,
         "declaration": true,
         "experimentalDecorators": true,
-        "moduleResolution": "Node",
+        "moduleResolution": "Node16",
+        "strict": false,
         "noUnusedLocals": true,
         "noUnusedParameters": true,
         "stripInternal": true,
         "jsx": "preserve",
+        "types": ["node"],
+        "rootDir": "src",
         "outDir": "dist",
         "newLine": "lf"
     },

@@ -112,7 +112,8 @@ export default () => {
                          */
                         return factory.createStringLiteral(
                             JSON.parse(
-                                transpile(`<>${text}</>`, {jsx: JsxEmit.React})
+                                // alwaysStrict must stay off, otherwise the emit is prefixed with a "use strict" prologue
+                                transpile(`<>${text}</>`, {jsx: JsxEmit.React, alwaysStrict: false})
                                     .replace(/^[\s\S]*?("[\s\S]*")[\s\S]*?$/, '$1')
                             )
                         )
