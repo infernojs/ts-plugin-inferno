@@ -12,8 +12,10 @@ import {
     Node,
     NodeArray,
     ParenthesizedExpression,
+    ScriptTarget,
     SourceFile,
     SyntaxKind,
+    isSpreadElement,
     TransformationContext,
     Transformer,
     visitEachChild,
@@ -155,6 +157,68 @@ export default () => {
             return expressions.concat(value).reduce((left, right) => factory.createComma(left, right))
         }
 
+        function isJsx(node) {
+            while (
+                node.kind === SyntaxKind.ParenthesizedExpression ||
+                node.kind === SyntaxKind.PartiallyEmittedExpression ||
+                node.kind === SyntaxKind.AsExpression ||
+                node.kind === SyntaxKind.SatisfiesExpression ||
+                node.kind === SyntaxKind.NonNullExpression ||
+                node.kind === SyntaxKind.TypeAssertionExpression
+            ) {
+                node = node.expression
+            }
+            return node.kind === SyntaxKind.JsxElement || node.kind === SyntaxKind.JsxSelfClosingElement || node.kind === SyntaxKind.JsxFragment
+        }
+
+        /*
+         * ES5 has no array spread and the plugin runs after TypeScript's own transforms, so spread children are
+         * downleveled here: [a, ...b] becomes [a].concat(Array.prototype.slice.call(b)), which copies b like
+         * TypeScript's __spreadArray does without downlevelIteration.
+         */
+        function downlevelSpreadChildren(children) {
+            const target = context.getCompilerOptions().target
+
+            if (
+                target === undefined || target >= ScriptTarget.ES2015 ||
+                !children || children.kind !== SyntaxKind.ArrayLiteralExpression ||
+                !children.elements.some(isSpreadElement)
+            ) {
+                return children
+            }
+            const parts: Expression[] = []
+            let elements: Expression[] = []
+
+            for (const element of children.elements) {
+                if (isSpreadElement(element)) {
+                    if (elements.length) {
+                        parts.push(factory.createArrayLiteralExpression(elements))
+                        elements = []
+                    }
+                    parts.push(factory.createCallExpression(
+                        factory.createPropertyAccessExpression(
+                            factory.createPropertyAccessExpression(
+                                factory.createPropertyAccessExpression(factory.createIdentifier('Array'), 'prototype'),
+                                'slice'
+                            ),
+                            'call'
+                        ),
+                        undefined,
+                        [element.expression]
+                    ))
+                } else {
+                    elements.push(element)
+                }
+            }
+            if (elements.length) {
+                parts.push(factory.createArrayLiteralExpression(elements))
+            }
+
+            const [first, ...rest] = parts
+
+            return rest.length ? factory.createCallExpression(factory.createPropertyAccessExpression(first, 'concat'), undefined, rest) : first
+        }
+
         function getImportSpecifier(name: 'createFragment' | 'createVNode' | 'createComponentVNode' | 'createTextVNode' | 'normalizeProps'): Expression {
             return context['infernoImportSpecifiers'].get(name).name;
         }
@@ -184,7 +248,10 @@ export default () => {
 
                 case SyntaxKind.JsxExpression:
                     if ((<JsxExpression>node).expression) {
-                        return visitNode((<JsxExpression>node).expression, visitor)
+                        const expression = visitNode((<JsxExpression>node).expression, visitor) as Expression
+
+                        // A spread child, e.g. <div>{...children}</div>, is spread into the children array
+                        return (<JsxExpression>node).dotDotDotToken ? factory.createSpreadElement(expression) : expression
                     }
                     break
 
@@ -286,6 +353,7 @@ export default () => {
                 vChildren = transformTextNodes(vChildren)
             }
 
+            vChildren = downlevelSpreadChildren(vChildren)
             context['createFragment'] = true
 
             return factory.createCallExpression(
@@ -344,7 +412,7 @@ export default () => {
                     ) {
                         // JSX children replace the children prop
                         props.properties.push(
-                            createPropertyAssignment('children', withOverridden(removeChildrenProp(vProps), vChildren))
+                            createPropertyAssignment('children', withOverridden(removeChildrenProp(vProps), downlevelSpreadChildren(vChildren)))
                         )
 
                         vProps.props[0] = props
@@ -369,22 +437,21 @@ export default () => {
 
                             vChildren = factory.createStringLiteral(text)
                         }
-                    } else if (vProps.propChildren.kind === SyntaxKind.JsxExpression) {
-                        if (
-                            vProps.propChildren.expression.kind === SyntaxKind.NullKeyword
-                        ) {
-                            vChildren = null
-                            childFlags = ChildFlags.HasInvalidChildren
-                        } else {
-                            vChildren = createVNode(
-                                vProps.propChildren.expression,
-                                vProps.propChildren.expression.children
-                            )
-                            childFlags = ChildFlags.HasVNodeChildren
-                        }
-                    } else {
+                    } else if (
+                        vProps.propChildren.kind === SyntaxKind.JsxExpression &&
+                        (!vProps.propChildren.expression || vProps.propChildren.expression.kind === SyntaxKind.NullKeyword)
+                    ) {
                         vChildren = null
                         childFlags = ChildFlags.HasInvalidChildren
+                    } else {
+                        // children={expression}, or children=<element /> without braces
+                        const value = vProps.propChildren.kind === SyntaxKind.JsxExpression ? vProps.propChildren.expression : vProps.propChildren
+
+                        vChildren = getValue(vProps.propChildren, visitor, factory)
+                        // Only JSX is known to be a single vNode, other values are normalized at runtime like {expression} children
+                        childFlags = vType.vNodeType !== TYPE_FRAGMENT && (isJsx(value) || vProps.childrenKnown)
+                            ? ChildFlags.HasVNodeChildren
+                            : ChildFlags.UnknownChildren
                     }
                 }
                 if (
@@ -432,6 +499,8 @@ export default () => {
             if (vChildren && childrenResults.foundText) {
                 vChildren = transformTextNodes(vChildren)
             }
+
+            vChildren = downlevelSpreadChildren(vChildren)
 
             if (overriddenChildren) {
                 vChildren = withOverridden(overriddenChildren, vChildren)
@@ -740,6 +809,7 @@ export default () => {
             let parentCanBeKeyed = false
             let requiresNormalization = false
             let foundText = false
+            let hasSpreadChild = false
 
             for (let i = 0; i < astChildren.length; i++) {
                 let child = astChildren[i]
@@ -747,6 +817,7 @@ export default () => {
 
                 if (child.kind === SyntaxKind.JsxExpression) {
                     requiresNormalization = true
+                    hasSpreadChild = hasSpreadChild || child.dotDotDotToken !== undefined
                 } else if (
                     child.kind === SyntaxKind.JsxText &&
                     handleWhiteSpace(child.getText()) !== ''
@@ -778,7 +849,8 @@ export default () => {
             }
 
             // Fix: When there is single child parent cant be keyed either, its faster to use patch than patchKeyed routine in that case
-            let hasSingleChild = children.length === 1
+            // A spread child is only valid inside the children array
+            let hasSingleChild = children.length === 1 && !hasSpreadChild
 
             return {
                 parentCanBeKeyed: hasSingleChild === false && parentCanBeKeyed,

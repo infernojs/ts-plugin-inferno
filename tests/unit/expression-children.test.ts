@@ -1,6 +1,14 @@
 import {describe, it} from 'node:test'
 import * as assert from 'node:assert/strict'
-import {transform} from './helpers'
+import {es5, stripInfernoImport, transform, transformWith} from './helpers'
+
+// Runs ES5 output that declares `vNode`, with a createVNode stub returning its arguments
+function runES5VNode(input: string, scope: Record<string, unknown>): any {
+    const code = stripInfernoImport(transformWith(input, es5))
+    const createVNode = (flags, type, className, children, childFlags) => ({flags, type, className, children, childFlags})
+
+    return new Function('createVNode', ...Object.keys(scope), `${code}\nreturn vNode;`)(createVNode, ...Object.values(scope))
+}
 
 describe('Expression children', () => {
     describe('empty expressions', () => {
@@ -125,6 +133,79 @@ describe('Expression children', () => {
         })
     })
 
+    describe('spread children', () => {
+        it('Should spread children of an element', () => {
+            assert.equal(transform('<div>{...children}</div>'), 'createVNode(1, "div", null, [...children], 0);')
+        })
+
+        it('Should spread children given with a type assertion', () => {
+            assert.equal(transform('<div>{...(items as Item[])}</div>'), 'createVNode(1, "div", null, [...items], 0);')
+        })
+
+        it('Should spread children of a component', () => {
+            assert.equal(transform('<Foo>{...children}</Foo>'), 'createComponentVNode(2, Foo, { "children": [...children] });')
+        })
+
+        it('Should spread children of a fragment', () => {
+            assert.equal(transform('<>{...children}</>'), 'createFragment([...children], 0);')
+        })
+
+        it('Should spread children of a keyed Fragment', () => {
+            assert.equal(transform('<Fragment key="k">{...a}</Fragment>'), 'createFragment([...a], 0, "k");')
+        })
+
+        it('Should spread several children in order (oxc spread-children-multiple-automatic)', () => {
+            assert.equal(transform('<div>{...[1, 2]}{...[3, 4]}</div>'), 'createVNode(1, "div", null, [...[1, 2], ...[3, 4]], 0);')
+        })
+
+        it('Should spread children around a static element (oxc spread-children-mixed-automatic)', () => {
+            assert.equal(transform('<div>{...a}<span/>{...b}</div>'), 'createVNode(1, "div", null, [...a, createVNode(1, "span"), ...b], 0);')
+        })
+
+        it('Should spread a JSX element child (babel constant-elements)', () => {
+            assert.equal(transform('<div>{...<span/>}</div>'), 'createVNode(1, "div", null, [...createVNode(1, "span")], 0);')
+        })
+
+        it('Should spread children next to text', () => {
+            assert.equal(transform('<div>text{...a}</div>'), 'createVNode(1, "div", null, [createTextVNode("text"), ...a], 0);')
+        })
+
+        it('Should spread component children next to text', () => {
+            assert.equal(transform('<Foo>text{...a}</Foo>'), 'createComponentVNode(2, Foo, { "children": ["text", ...a] });')
+        })
+
+        it('Should normalize spread children next to a keyed child', () => {
+            assert.equal(transform('<div><span key="k"/>{...a}</div>'), 'createVNode(1, "div", null, [createVNode(1, "span", null, null, 1, null, "k"), ...a], 0);')
+        })
+
+        it('Should use the child flag given for spread children', () => {
+            assert.equal(transform('<div $HasNonKeyedChildren>{...a}</div>'), 'createVNode(1, "div", null, [...a], 4);')
+        })
+
+        // The plugin runs as an `after` transformer, so a spread it emits is not downleveled by TypeScript
+        it('Should compile spread children for ES5 targets', () => {
+            const a = [1, 2]
+            const code = transformWith('const vNode = <div>{...a}</div>;', es5)
+            const vNode = runES5VNode('const vNode = <div>{...a}</div>;', {a})
+
+            assert.doesNotMatch(code, /\.\.\./)
+            assert.deepEqual(vNode.children, [1, 2])
+            assert.notEqual(vNode.children, a)
+            assert.equal(vNode.childFlags, 0)
+        })
+
+        // Array.prototype.concat flattens array arguments, so plain children are wrapped to keep an array child nested
+        it('Should keep the order of spread and plain children for ES5 targets', () => {
+            const input = 'const vNode = <div>{...a}{b}{...c}</div>;'
+
+            assert.equal(
+                stripInfernoImport(transformWith(input, es5)),
+                'var vNode = createVNode(1, "div", null, Array.prototype.slice.call(a).concat([b], Array.prototype.slice.call(c)), 0);'
+            )
+            assert.deepEqual(runES5VNode(input, {a: [1], b: [2], c: [3]}).children, [1, [2], 3])
+        })
+    })
+
     describe('children prop', () => {
         it('Should use a JSX element children prop given in braces', () => {
             assert.equal(transform('<div children={<span/>} />'), 'createVNode(1, "div", null, createVNode(1, "span"), 2);')
@@ -132,6 +213,42 @@ describe('Expression children', () => {
 
         it('Should create no children for a null children prop', () => {
             assert.equal(transform('<div children={null} />'), 'createVNode(1, "div");')
+        })
+
+        it('Should normalize a string children prop', () => {
+            assert.equal(transform('<div children={"txt"} />'), 'createVNode(1, "div", null, "txt", 0);')
+        })
+
+        it('Should normalize an array children prop', () => {
+            assert.equal(transform('<div children={[a, b]} />'), 'createVNode(1, "div", null, [a, b], 0);')
+        })
+
+        it('Should normalize an unknown children prop expression', () => {
+            assert.equal(transform('<div children={a} />'), 'createVNode(1, "div", null, a, 0);')
+        })
+
+        it('Should normalize a children prop expression with a type assertion', () => {
+            assert.equal(transform('<div children={a as Child} />'), 'createVNode(1, "div", null, a, 0);')
+        })
+
+        it('Should use a JSX element children prop given without braces', () => {
+            assert.equal(transform('<div children=<span/> />'), 'createVNode(1, "div", null, createVNode(1, "span"), 2);')
+        })
+
+        it('Should use a JSX fragment children prop given without braces', () => {
+            assert.equal(transform('<div children=<>{a}</> />'), 'createVNode(1, "div", null, createFragment(a, 0), 2);')
+        })
+
+        it('Should trust $HasVNodeChildren for a children prop expression', () => {
+            assert.equal(transform('<div $HasVNodeChildren children={a} />'), 'createVNode(1, "div", null, a, 2);')
+        })
+
+        it('Should normalize a Fragment children prop like Fragment children', () => {
+            assert.equal(transform('<Fragment children={a} />'), 'createFragment(a, 0);')
+        })
+
+        it('Should normalize a JSX Fragment children prop', () => {
+            assert.equal(transform('<Fragment children={<span/>} />'), 'createFragment(createVNode(1, "span"), 0);')
         })
     })
 
