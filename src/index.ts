@@ -311,7 +311,7 @@ export default () => {
                     args.push(factory.createArrayLiteralExpression([children]))
                 }
             } else if (hasChildFlags || hasKey) {
-                args.push(null)
+                args.push(factory.createNull())
             }
 
             if (hasChildFlags) {

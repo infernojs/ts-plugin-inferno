@@ -4,6 +4,18 @@ import {transform} from './helpers'
 
 describe('Fragments', () => {
     describe('keyed fragments', () => {
+        it('Should create a keyed empty self-closing Fragment', () => {
+            assert.equal(transform('<Fragment key="k"/>'), 'createFragment(null, 1, "k");')
+        })
+
+        it('Should create a keyed empty Fragment', () => {
+            assert.equal(transform('<Fragment key="k"></Fragment>'), 'createFragment(null, 1, "k");')
+        })
+
+        it('Should create a keyed empty React.Fragment', () => {
+            assert.equal(transform('<React.Fragment key={id!} />'), 'createFragment(null, 1, id);')
+        })
+
         it('Should create a keyed Fragment with text', () => {
             assert.equal(transform('<Fragment key="k">text</Fragment>'), 'createFragment([createTextVNode("text")], 4, "k");')
         })

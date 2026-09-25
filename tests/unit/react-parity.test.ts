@@ -42,6 +42,10 @@ describe('React parity', () => {
             assert.equal(run('<div>wôw</div>').children, 'wôw')
         })
 
+        it('Should compile a keyed React.Fragment without children', () => {
+            assert.equal(transform('<React.Fragment key="foo"></React.Fragment>'), 'createFragment(null, 1, "foo");')
+        })
+
         it('Should compile a spread of a null variable', () => {
             assert.equal(transform('var foo = null;\n<div {...foo} />'), 'var foo = null;\nnormalizeProps(createVNode(1, "div", null, null, 1, Object.assign({}, foo)));')
         })
