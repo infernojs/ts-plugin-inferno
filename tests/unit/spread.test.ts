@@ -28,6 +28,14 @@ describe('Spread attributes', () => {
             assert.equal(transform('<div {...null} />'), 'normalizeProps(createVNode(1, "div", null, null, 1, Object.assign({}, null)));')
         })
 
+        it('Should keep a spread of a JSX element', () => {
+            assert.equal(transform('<div {...<span/>} />'), 'normalizeProps(createVNode(1, "div", null, null, 1, Object.assign({}, createVNode(1, "span"))));')
+        })
+
+        it('Should compile JSX nested inside a spread expression', () => {
+            assert.equal(transform('<Foo {...{icon: <Icon<T> />}} />'), 'normalizeProps(createComponentVNode(2, Foo, Object.assign({}, { icon: createComponentVNode(2, Icon) })));')
+        })
+
         it('Should keep an object literal spread containing __proto__', () => {
             assert.equal(transform('<Foo {...{__proto__: a}} b="1" />'), 'normalizeProps(createComponentVNode(2, Foo, Object.assign({}, { __proto__: a }, { "b": "1" })));')
         })

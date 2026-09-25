@@ -697,8 +697,11 @@ export default () => {
                         objectLiteralExpressionAdded = true
                     }
 
-                    assignArgs.push(astProp.expression);
-                    spreads.push(astProp.expression)
+                    // Visited like attribute values, so JSX in the spread expression is compiled too
+                    const expression = visitNode(astProp.expression, visitor) as Expression
+
+                    assignArgs.push(expression)
+                    spreads.push(expression)
                 } else {
                     initializer = astProp.initializer
                     let propName = getPropertyName(astProp);
