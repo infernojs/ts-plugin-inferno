@@ -1,45 +1,58 @@
-function _stringLiteralTrimmer(lastNonEmptyLine, lineCount, line, i) {
-    const isFirstLine = i === 0;
-    const isLastLine = i === lineCount - 1;
-    const isLastNonEmptyLine = i === lastNonEmptyLine;
-    // replace rendered whitespace tabs with spaces
-    let trimmedLine = line.replace(/\t/g, " ");
-    // trim leading whitespace
-    if (!isFirstLine) {
-        trimmedLine = trimmedLine.replace(/^[ ]+/, "");
-    }
-    // trim trailing whitespace
-    if (!isLastLine) {
-        trimmedLine = trimmedLine.replace(/[ ]+$/, "");
-    }
-    if (trimmedLine.length > 0) {
-        if (!isLastNonEmptyLine) {
-            trimmedLine += " ";
-        }
-        return trimmedLine;
-    }
-    return "";
+const LINE_BREAK = /\r\n|\n|\r/;
+const BLANK_LINES = /^[ \t\r\n]*$/;
+const NOT_BLANK = /[^ \t]/;
+const TABS = /\t/g;
+
+function isBlank(charCode: number) {
+    return charCode === 32 || charCode === 9;
 }
 
-export default function handleWhiteSpace(value) {
-    const lines = value.split(/\r\n|\n|\r/);
+/*
+ * Collapses the whitespace of JSX text: tabs become spaces, the lines are trimmed of spaces except at the outer ends
+ * of the text, lines left empty are dropped and the rest are joined with a space.
+ */
+export default function handleWhiteSpace(value: string): string {
+    if (value.indexOf('\n') === -1 && value.indexOf('\r') === -1) {
+        return value.indexOf('\t') === -1 ? value : value.replace(TABS, ' ');
+    }
+    // The indentation between elements, the most common text by far
+    if (BLANK_LINES.test(value)) {
+        return '';
+    }
+    const lines = value.split(LINE_BREAK);
+    const lastLine = lines.length - 1;
     let lastNonEmptyLine = 0;
+    let str = '';
 
-    for (let i = lines.length - 1; i > 0; i--) {
-        if (lines[i].match(/[^ \t]/)) {
+    for (let i = lastLine; i > 0; i--) {
+        if (NOT_BLANK.test(lines[i])) {
             lastNonEmptyLine = i;
             break;
         }
     }
-    const str = lines
-        .map(_stringLiteralTrimmer.bind(null, lastNonEmptyLine, lines.length))
-        .filter(function (line) {
-            return line.length > 0;
-        })
-        .join("");
+    for (let i = 0; i <= lastLine; i++) {
+        const line = lines[i];
+        let start = 0;
+        let end = line.length;
 
-    if (str.length > 0) {
-        return str;
+        if (i !== 0) {
+            while (start < end && isBlank(line.charCodeAt(start))) {
+                start++;
+            }
+        }
+        if (i !== lastLine) {
+            while (end > start && isBlank(line.charCodeAt(end - 1))) {
+                end--;
+            }
+        }
+        if (end > start) {
+            const trimmed = line.slice(start, end);
+
+            str += trimmed.indexOf('\t') === -1 ? trimmed : trimmed.replace(TABS, ' ');
+            if (i !== lastNonEmptyLine) {
+                str += ' ';
+            }
+        }
     }
-    return "";
+    return str;
 }

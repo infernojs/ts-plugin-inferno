@@ -4,7 +4,7 @@ import {
     getLineAndCharacterOfPosition,
     getSourceMapRange,
     idText,
-    ImportSpecifier,
+    Identifier,
     JsxAttributeLike,
     JsxChild,
     JsxElement,
@@ -14,9 +14,11 @@ import {
     JsxText,
     Node,
     NodeArray,
+    ObjectLiteralElementLike,
     ParenthesizedExpression,
     ScriptTarget,
     setSourceMapRange,
+    SourceMapRange,
     SourceFile,
     SyntaxKind,
     isSpreadElement,
@@ -26,6 +28,7 @@ import {
     visitNode,
     VisitResult
 } from "typescript";
+import * as ts from "typescript";
 import {ChildFlags, VNodeFlags} from './utils/flags'
 import isComponent from './utils/isComponent'
 import isValidIdentifier from './utils/isValidIdentifier'
@@ -66,6 +69,12 @@ function getPropertyName(astProp: any) {
     return `${astProp.name.namespace.text}:${astProp.name.name.text}`
 }
 
+/*
+ * TypeScript marks every node whose subtree contains JSX with this transform flag, and its own JSX transform uses it
+ * to skip the rest. The flag is not part of the public API, so without it every node is visited.
+ */
+const CONTAINS_JSX: number | undefined = (<any>ts).TransformFlags?.ContainsJsx
+
 // Own properties only, so that names like constructor or __proto__ do not match Object.prototype
 function hasOwn(object: object, key: string) {
     return Object.prototype.hasOwnProperty.call(object, key)
@@ -74,7 +83,12 @@ function hasOwn(object: object, key: string) {
 export default () => {
     return (context: TransformationContext): Transformer<SourceFile> => {
         const {factory} = context;
+        const compilerOptions = context.getCompilerOptions()
+        // Source map ranges are only read when a source map is written, and each one allocates an emit node
+        const sourceMaps = Boolean(compilerOptions.sourceMap || compilerOptions.inlineSourceMap)
         let currentSourceFile: SourceFile
+        // The helper identifiers of the current file, created when a helper is first used
+        let helperIdentifiers: Record<string, Identifier>
 
         return ((sourceFile: SourceFile) => {
             if (sourceFile.isDeclarationFile) {
@@ -82,17 +96,7 @@ export default () => {
             }
 
             currentSourceFile = sourceFile
-
-            const importSpecifiers = new Map<string, ImportSpecifier>();
-
-            for (const name of POSSIBLE_IMPORTS_TO_ADD) {
-                importSpecifiers.set(
-                    name,
-                    factory.createImportSpecifier(false, undefined, factory.createIdentifier(name))
-                )
-            }
-
-            context['infernoImportSpecifiers'] = importSpecifiers;
+            helperIdentifiers = {}
             context['createFragment'] = false
             context['createVNode'] = false
             context['createComponentVNode'] = false
@@ -112,6 +116,26 @@ export default () => {
             const {line, character} = getLineAndCharacterOfPosition(currentSourceFile, node.getStart(currentSourceFile))
 
             return new Error(`${currentSourceFile.fileName}(${line + 1},${character + 1}): ${message}`)
+        }
+
+        /*
+         * Adds a prop to props and rejects an attribute that ends up as the same prop as an earlier one, e.g. htmlFor
+         * and for. outputNames holds pairs of a prop name and the attribute that set it, or is null for a single attribute.
+         */
+        function addProp(props: ObjectLiteralElementLike[], outputNames: string[] | null, astProp, attributeName: string, outputName: string) {
+            if (outputNames !== null) {
+                for (let i = 0; i < outputNames.length; i += 2) {
+                    if (outputNames[i] === outputName) {
+                        throw createError(astProp, outputNames[i + 1] + ' and ' + attributeName + ' both set the ' + outputName + ' prop. Remove one of them.')
+                    }
+                }
+                outputNames.push(outputName, attributeName)
+            }
+
+            const prop = createPropertyAssignment(outputName, getValue(astProp.initializer, visitor, factory))
+
+            props.push(prop)
+            return prop
         }
 
         function createPropertyAssignment(name: string, value: Expression) {
@@ -226,13 +250,17 @@ export default () => {
         }
 
         function getImportSpecifier(name: 'createFragment' | 'createVNode' | 'createComponentVNode' | 'createTextVNode' | 'normalizeProps'): Expression {
-            return context['infernoImportSpecifiers'].get(name).name;
+            return helperIdentifiers[name] || (helperIdentifiers[name] = factory.createIdentifier(name))
+        }
+
+        function withSourceMapRange<T extends Node>(node: T, range: SourceMapRange): T {
+            return sourceMaps ? setSourceMapRange(node, range) : node
         }
 
         function visitor(node: Node): VisitResult<Node> {
             switch (node.kind) {
                 case SyntaxKind.JsxFragment:
-                    return setSourceMapRange(createFragment((<JsxFragment>node).children), node)
+                    return withSourceMapRange(createFragment((<JsxFragment>node).children), node)
 
                 case SyntaxKind.JsxElement:
                     return createVNode(
@@ -249,7 +277,7 @@ export default () => {
 
                     if (text !== '') {
                         // Whitespace is collapsed first, so encoded characters like &#10; are kept like in TypeScript's JSX emit
-                        return setSourceMapRange(factory.createStringLiteral(decodeEntities(text)), node)
+                        return withSourceMapRange(factory.createStringLiteral(decodeEntities(text)), node)
                     }
                     break
 
@@ -263,6 +291,10 @@ export default () => {
                     break
 
                 default:
+                    // Subtrees without JSX have nothing to compile, see CONTAINS_JSX
+                    if (CONTAINS_JSX !== undefined && ((<any>node).transformFlags & CONTAINS_JSX) === 0) {
+                        return node
+                    }
                     return visitEachChild(node, visitor, context)
             }
         }
@@ -293,10 +325,9 @@ export default () => {
 
         // createTextVNode("text") maps to the JSX text in source maps, like the string literal it wraps
         function createTextVNodeCall(text: Expression) {
-            return setSourceMapRange(
-                factory.createCallExpression(getImportSpecifier('createTextVNode'), [], [text]),
-                getSourceMapRange(text)
-            )
+            const call = factory.createCallExpression(getImportSpecifier('createTextVNode'), [], [text])
+
+            return sourceMaps ? setSourceMapRange(call, getSourceMapRange(text)) : call
         }
 
         function createFragmentVNodeArgs(children, childFlags, key?) {
@@ -421,7 +452,7 @@ export default () => {
                         const lastProps = vProps.props[vProps.props.length - 1]
 
                         // They are merged last, so they win over a children key of a spread like in React
-                        if (lastProps && !vProps.spreads.includes(lastProps)) {
+                        if (lastProps && !(vProps.spreads !== null && vProps.spreads.includes(lastProps))) {
                             lastProps.properties.push(childrenProp)
                         } else {
                             vProps.props.push(factory.createObjectLiteralExpression([childrenProp]))
@@ -588,12 +619,12 @@ export default () => {
             }
 
             // The generated calls map to the JSX in source maps, their arguments are synthesized
-            setSourceMapRange(createVNodeCall, node)
+            withSourceMapRange(createVNodeCall, node)
 
             // NormalizeProps will normalizeChildren too
             if (vProps.needsNormalization) {
                 context['normalizeProps'] = true
-                createVNodeCall = setSourceMapRange(
+                createVNodeCall = withSourceMapRange(
                     factory.createCallExpression(getImportSpecifier('normalizeProps'), [], [createVNodeCall]),
                     node
                 )
@@ -655,7 +686,7 @@ export default () => {
         function getVNodeProps(astProps: NodeArray<JsxAttributeLike>, isComponent) {
             let key = null
             let ref = null
-            let hooks = []
+            let hooks = null
             let className = null
             let hasClassName = false
             let hasTextChildren = false
@@ -670,28 +701,12 @@ export default () => {
             let childFlags = null
             let contentEditable = false
             let assignArgs = []
-            let spreads = []
+            let spreads = null
             let propsPropertyAssignments = []
             let objectLiteralExpressionAdded = false
-            // Attribute names seen so far, and the attribute name that set each prop, to reject duplicates
-            const seenProps = new Set<string>()
-            const outputProps = new Map<string, string>()
-
-            // Adds a prop and rejects attributes that end up as the same prop, e.g. htmlFor and for
-            function addProp(astProp, attributeName: string, outputName: string) {
-                if (outputProps.has(outputName)) {
-                    throw createError(
-                        astProp,
-                        outputProps.get(outputName) + ' and ' + attributeName + ' both set the ' + outputName + ' prop. Remove one of them.'
-                    )
-                }
-                outputProps.set(outputName, attributeName)
-
-                const prop = createPropertyAssignment(outputName, getValue(astProp.initializer, visitor, factory))
-
-                propsPropertyAssignments.push(prop)
-                return prop
-            }
+            // Duplicates need two attributes, which most elements do not have, so the lists are only made for those
+            const seenNames: string[] | null = astProps.length > 1 ? [] : null
+            const outputNames: string[] | null = astProps.length > 1 ? [] : null
 
             for (let i = 0; i < astProps.length; i++) {
                 let astProp = astProps[i]
@@ -715,15 +730,20 @@ export default () => {
                     const expression = visitNode(astProp.expression, visitor) as Expression
 
                     assignArgs.push(expression)
+                    if (spreads === null) {
+                        spreads = []
+                    }
                     spreads.push(expression)
                 } else {
                     initializer = astProp.initializer
                     let propName = getPropertyName(astProp);
 
-                    if (seenProps.has(propName)) {
-                        throw createError(astProp, 'Multiple ' + propName + ' props are not supported. Remove the duplicate ' + propName + ' prop.')
+                    if (seenNames !== null) {
+                        if (seenNames.includes(propName)) {
+                            throw createError(astProp, 'Multiple ' + propName + ' props are not supported. Remove the duplicate ' + propName + ' prop.')
+                        }
+                        seenNames.push(propName)
                     }
-                    seenProps.add(propName)
 
                     if (
                         !isComponent &&
@@ -735,12 +755,15 @@ export default () => {
                         hasClassName = true
                         className = getValue(initializer, visitor, factory)
                     } else if (!isComponent && hasOwn(attributeTransforms, propName)) {
-                        addProp(astProp, propName, attributeTransforms[propName])
+                        addProp(propsPropertyAssignments, outputNames, astProp, propName, attributeTransforms[propName])
                     } else if (!isComponent && lowerCaseAttributes.has(propName)) {
-                        addProp(astProp, propName, propName.toLowerCase())
+                        addProp(propsPropertyAssignments, outputNames, astProp, propName, propName.toLowerCase())
                     } else if (!isComponent && propName === 'onDoubleClick') {
-                        addProp(astProp, propName, 'onDblClick')
-                    } else if (propName.substring(0, 11) === 'onComponent' && isComponent) {
+                        addProp(propsPropertyAssignments, outputNames, astProp, propName, 'onDblClick')
+                    } else if (isComponent && propName.startsWith('onComponent')) {
+                        if (hooks === null) {
+                            hooks = []
+                        }
                         hooks.push(
                             factory.createPropertyAssignment(
                                 factory.createStringLiteral(propName),
@@ -749,7 +772,7 @@ export default () => {
                         )
                     } else if (!isComponent && hasOwn(svgAttributes, propName)) {
                         // React compatibility for SVG Attributes
-                        addProp(astProp, propName, svgAttributes[propName])
+                        addProp(propsPropertyAssignments, outputNames, astProp, propName, svgAttributes[propName])
                     } else {
                         switch (propName) {
                             case 'noNormalize':
@@ -801,14 +824,15 @@ export default () => {
                                 flagsOverride = getValue(initializer, visitor, factory)
                                 break
                             default:
-                                if (propName.toLowerCase() === 'contenteditable') {
+                                // The length check first avoids a lowercased copy of every other prop name
+                                if (propName.length === 15 && propName.toLowerCase() === 'contenteditable') {
                                     contentEditable = true
                                 }
                                 if (propName === 'children') {
                                     propChildren = astProp.initializer
-                                    childrenProp = addProp(astProp, propName, propName)
+                                    childrenProp = addProp(propsPropertyAssignments, outputNames, astProp, propName, propName)
                                 } else {
-                                    addProp(astProp, propName, propName)
+                                    addProp(propsPropertyAssignments, outputNames, astProp, propName, propName)
                                 }
                         }
                     }
@@ -821,7 +845,7 @@ export default () => {
 
             // Component hooks are passed in the ref argument; a ref attribute is merged in first so that the hook
             // attributes win regardless of their position
-            if (hooks.length) {
+            if (hooks !== null) {
                 const hooksObject = factory.createObjectLiteralExpression(hooks)
 
                 ref = ref ? createAssignHelper(context, [factory.createObjectLiteralExpression(), ref, hooksObject]) : hooksObject

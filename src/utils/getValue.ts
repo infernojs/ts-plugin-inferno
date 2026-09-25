@@ -12,7 +12,9 @@ export default function getValue(node, visitor, factory) {
     if (node.kind === SyntaxKind.StringLiteral) {
         // JSX strings have no escape sequences, the text is taken as written. Line breaks in the source are collapsed
         // to a space like Babel's JSX transform does, then entities are decoded like TypeScript's JSX transform does.
-        return factory.createStringLiteral(decodeEntities(node.text.replace(LINE_BREAK_AND_INDENT, ' ')));
+        const text = node.text.indexOf('\n') === -1 ? node.text : node.text.replace(LINE_BREAK_AND_INDENT, ' ');
+
+        return factory.createStringLiteral(decodeEntities(text));
     }
     if (node.kind === SyntaxKind.JsxExpression) {
         if (!node.expression) {
