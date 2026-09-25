@@ -27,7 +27,7 @@
     "prepublishOnly": "rimraf dist && tsc"
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=24"
   },
   "author": "Deam Hansen, Sampo Kivistö <havunen>",
   "license": "MIT",
