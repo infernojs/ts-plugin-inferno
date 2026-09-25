@@ -148,5 +148,25 @@ describe('TSX with the TypeScript compiler', function () {
         it('Should elide an unused import of another JSX factory', function () {
             assert.equal(transformWith('import { h } from "preact";\nexport const a = <div/>;'), 'import { createVNode } from "inferno";\nexport const a = createVNode(1, "div");')
         })
+
+        it('Should keep an Inferno namespace import with verbatimModuleSyntax', function () {
+            const code = transformWith('import * as Inferno from "inferno";\nexport const a = <div/>;', {verbatimModuleSyntax: true})
+
+            assert.match(code, /^import \* as Inferno from "inferno";$/m)
+            assert.match(code, /^import \{ createVNode \} from "inferno";$/m)
+            assert.ok(code.endsWith('export const a = createVNode(1, "div");'), code)
+        })
+
+        it('Should keep an Inferno default import with verbatimModuleSyntax', function () {
+            const code = transformWith('import Inferno from "inferno";\nexport const a = <div/>;', {verbatimModuleSyntax: true})
+
+            assert.match(code, /^import Inferno(, \{ createVNode \})? from "inferno";$/m)
+            assert.match(code, /\bcreateVNode\b.* from "inferno";$/m)
+            assert.ok(code.endsWith('export const a = createVNode(1, "div");'), code)
+        })
+
+        it('Should use createVNode imported from another module with verbatimModuleSyntax', function () {
+            assert.equal(transformWith('import { createVNode } from "other-lib";\nexport const a = <div/>;', {verbatimModuleSyntax: true}), 'import { createVNode } from "other-lib";\nexport const a = createVNode(1, "div");')
+        })
     })
 })

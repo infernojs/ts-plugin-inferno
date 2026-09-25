@@ -95,7 +95,7 @@ export default () => {
 
             const newSourceFile = visitEachChild(sourceFile, visitor, context)
 
-            return updateSourceFile(newSourceFile, context)
+            return updateSourceFile(newSourceFile, context, POSSIBLE_IMPORTS_TO_ADD.filter(name => context[name]))
         })
 
         // Points the error at the node like tsc diagnostics do, e.g. "file.tsx(3,5): message"

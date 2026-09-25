@@ -1,84 +1,76 @@
-import {POSSIBLE_IMPORTS_TO_ADD} from "./index";
 import {
     ImportDeclaration,
-    ImportSpecifier,
     isImportDeclaration,
+    isNamedImports,
+    isStringLiteral,
     NamedImports,
     SourceFile,
-    StringLiteral,
     TransformationContext
 } from "typescript";
+import {getDeclaredNames, getPrologueLength} from "./utils/moduleUtils";
 
-
-export function handleEcmaModules(sourceFile: SourceFile, context: TransformationContext) {
+export function handleEcmaModules(sourceFile: SourceFile, context: TransformationContext, helpers: string[]) {
     const factory = context.factory;
-    const specifiersToAdd: ImportSpecifier[] = [];
-    let statements = sourceFile.statements;
-    const matchedImportIdx = statements
-        .findIndex(s => isImportDeclaration(s)
-            && (s.moduleSpecifier as StringLiteral).text === 'inferno'
-        );
+    const statements = sourceFile.statements;
+    // Helpers the file already declares or imports are used as they are, like babel-plugin-inferno does
+    const declaredNames = getDeclaredNames(statements)
+    const specifiersToAdd = helpers
+        .filter(name => !declaredNames.has(name))
+        .map(name => factory.createImportSpecifier(false, undefined, factory.createIdentifier(name)))
 
-    // Inferno import statement already exists, and we do not want to add imports for functions already imported, so removing those from context.
-    if (matchedImportIdx !== -1) {
-        ((statements[matchedImportIdx] as ImportDeclaration).importClause.namedBindings as NamedImports).elements.forEach(e => {
-            context[e.name.text] = false;
-        });
+    if (specifiersToAdd.length === 0) {
+        return sourceFile
     }
 
-    for (const name of POSSIBLE_IMPORTS_TO_ADD) {
-        if (context[name]) {
-            specifiersToAdd.push(context['infernoImportSpecifiers'].get(name));
-        }
-    }
+    // Merge into an existing import { ... } from "inferno", other kinds of inferno imports get a new declaration next to them
+    const matchedImportIdx = statements.findIndex(s =>
+        isImportDeclaration(s) &&
+        isStringLiteral(s.moduleSpecifier) &&
+        s.moduleSpecifier.text === 'inferno' &&
+        !s.importClause?.isTypeOnly &&
+        s.importClause?.namedBindings !== undefined &&
+        isNamedImports(s.importClause.namedBindings)
+    )
 
-    if (specifiersToAdd.length > 0) {
-        if (matchedImportIdx === -1) {
-            const importStatement = factory.createImportDeclaration(
+    if (matchedImportIdx === -1) {
+        const importStatement = factory.createImportDeclaration(
+            undefined,
+            factory.createImportClause(
+                false,
                 undefined,
-                factory.createImportClause(
-                    false,
-                    undefined,
-                    factory.createNamedImports(specifiersToAdd)
-                ),
-                factory.createStringLiteral('inferno')
-            );
+                factory.createNamedImports(specifiersToAdd)
+            ),
+            factory.createStringLiteral('inferno')
+        );
+        const prologueLength = getPrologueLength(statements);
 
-            (importStatement.parent as any) = sourceFile as any
+        (importStatement.parent as any) = sourceFile as any
 
-            statements = factory.createNodeArray([
-                importStatement,
-                ...statements
-            ])
-        } else {
-            const statement = statements[matchedImportIdx];
-            const importDeclaration = statement as ImportDeclaration;
-            const namedBindings = importDeclaration.importClause.namedBindings as NamedImports;
-            const newNamedImports = (namedBindings?.elements || []).concat(specifiersToAdd);
-            const updatedNamedImports = factory.updateNamedImports(namedBindings, newNamedImports);
-
-            const updatedImportDecl = factory.updateImportDeclaration(
-                importDeclaration,
-                importDeclaration.modifiers,
-                factory.updateImportClause(
-                    importDeclaration.importClause,
-                    false,
-                    importDeclaration.importClause?.name,
-                    updatedNamedImports
-                ),
-                importDeclaration.moduleSpecifier,
-                importDeclaration.assertClause
-            )
-
-            statements = factory.createNodeArray([
-                ...statements.slice(0, matchedImportIdx),
-                updatedImportDecl,
-                ...statements.slice(matchedImportIdx + 1)
-            ])
-        }
-
-        return factory.updateSourceFile(sourceFile, statements, false);
+        return factory.updateSourceFile(sourceFile, [
+            ...statements.slice(0, prologueLength),
+            importStatement,
+            ...statements.slice(prologueLength)
+        ], false);
     }
 
-    return sourceFile
+    const importDeclaration = statements[matchedImportIdx] as ImportDeclaration;
+    const namedBindings = importDeclaration.importClause.namedBindings as NamedImports;
+    const updatedImportDecl = factory.updateImportDeclaration(
+        importDeclaration,
+        importDeclaration.modifiers,
+        factory.updateImportClause(
+            importDeclaration.importClause,
+            false,
+            importDeclaration.importClause.name,
+            factory.updateNamedImports(namedBindings, [...namedBindings.elements, ...specifiersToAdd])
+        ),
+        importDeclaration.moduleSpecifier,
+        importDeclaration.attributes
+    )
+
+    return factory.updateSourceFile(sourceFile, [
+        ...statements.slice(0, matchedImportIdx),
+        updatedImportDecl,
+        ...statements.slice(matchedImportIdx + 1)
+    ], false);
 }

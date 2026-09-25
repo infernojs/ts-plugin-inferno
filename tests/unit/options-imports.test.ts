@@ -51,6 +51,84 @@ describe('Options and imports', function () {
         })
     })
 
+    describe('module formats', function () {
+        it('Should require helpers in a file emitted as CommonJS by module Node16', function () {
+            const output = emitProgram({'/package.json': '{}', '/a.tsx': 'export const a = <div/>;'}, {module: ts.ModuleKind.Node16, moduleResolution: ts.ModuleResolutionKind.Node16})
+            const code = output['/a.jsx']
+
+            assert.ok(!code.includes('import '), code)
+            assert.match(code, /require\("inferno"\)/)
+            expectNodeCanParse(code, 'commonjs')
+        })
+
+        it('Should require helpers in a file emitted as CommonJS by module NodeNext', function () {
+            const output = emitProgram({'/package.json': '{"type": "commonjs"}', '/a.tsx': 'export const a = <div/>;'}, {module: ts.ModuleKind.NodeNext, moduleResolution: ts.ModuleResolutionKind.NodeNext})
+            const code = output['/a.jsx']
+
+            assert.ok(!code.includes('import '), code)
+            assert.match(code, /require\("inferno"\)/)
+            expectNodeCanParse(code, 'commonjs')
+        })
+
+        it('Should declare inferno as an AMD dependency', function () {
+            assert.equal(
+                transformWith('export const a = <div/>;', {module: ts.ModuleKind.AMD}),
+                'define(["require", "exports", "inferno"], function (require, exports, $inferno) {\n    "use strict";\n    var createVNode = $inferno.createVNode;\n    Object.defineProperty(exports, "__esModule", { value: true });\n    exports.a = void 0;\n    exports.a = createVNode(1, "div");\n});'
+            )
+        })
+
+        it('Should declare inferno as a System dependency', function () {
+            const code = transformWith('export const a = <div/>;', {module: ts.ModuleKind.System})
+
+            assert.ok(!code.includes('require('), code)
+            assert.match(code, /^System\.register\(\["inferno"\], /m)
+        })
+
+        it('Should import helpers in a file emitted as an ES module by module Node16', function () {
+            const output = emitProgram({'/package.json': '{"type": "module"}', '/a.tsx': 'export const a = <div/>;'}, {module: ts.ModuleKind.Node16, moduleResolution: ts.ModuleResolutionKind.Node16})
+
+            assert.equal(output['/a.jsx'], 'import { createVNode } from "inferno";\nexport const a = createVNode(1, "div");\n')
+        })
+
+        // TypeScript emits CommonJS when module is not set and the target is ES5
+        it('Should require helpers when module is not set and the target is ES5', function () {
+            const code = transformWith('export const a = <div/>;', {target: ts.ScriptTarget.ES5, module: undefined})
+
+            assert.match(code, /^var \$inferno = require\("inferno"\);$/m)
+            expectNodeCanParse(code, 'commonjs')
+        })
+
+        // Dependencies are passed to the factory parameters in order, side effect imports without a parameter come last
+        it('Should declare inferno before the AMD dependencies without a parameter', function () {
+            const code = transformWith('import "side";\nimport {x} from "other";\nexport const a = <div>{x}</div>;', {module: ts.ModuleKind.AMD})
+
+            assert.match(code, /^define\(\["require", "exports", "other", "inferno", "side"\], function \(require, exports, other_1, \$inferno\) \{$/m)
+        })
+
+        it('Should declare inferno as a dependency of a named AMD module', function () {
+            assert.match(
+                transformWith('/// <amd-module name="named"/>\nexport const a = <div/>;', {module: ts.ModuleKind.AMD}),
+                /^define\("named", \["require", "exports", "inferno"\], function \(require, exports, \$inferno\) \{$/m
+            )
+        })
+
+        it('Should declare inferno as a UMD dependency and require it in the factory', function () {
+            const code = transformWith('export const a = <div/>;', {module: ts.ModuleKind.UMD})
+
+            assert.match(code, /^        define\(\["require", "exports", "inferno"\], factory\);$/m)
+            assert.match(code, /^\}\)\(function \(require, exports\) \{\n    "use strict";\n    var \$inferno = require\("inferno"\);\n    var createVNode = \$inferno\.createVNode;$/m)
+            expectNodeCanParse(code, 'commonjs')
+        })
+
+        it('Should assign the helpers in a System setter', function () {
+            const code = transformWith('function createVNode() {}\nexport const a = <div><Foo/></div>;', {module: ts.ModuleKind.System})
+
+            assert.match(code, /^System\.register\(\["inferno"\], function \(exports_1, context_1\) \{\n    "use strict";\n    var createComponentVNode;$/m)
+            assert.match(code, /^            function \(\$inferno\) \{\n                createComponentVNode = \$inferno\.createComponentVNode;\n            \}$/m)
+            expectNodeCanParse(code, 'commonjs')
+        })
+    })
+
     describe('helper placement for CommonJS', function () {
         it('Should require helpers before the code converted from imports', function () {
             assert.equal(transformWith('import {a} from "b";\nexport function f() { return <div><Foo/></div>; }\nexport const g = () => <span a={a}/>;', commonJS), '"use strict";\nvar $inferno = require("inferno");\nvar createComponentVNode = $inferno.createComponentVNode;\nvar createVNode = $inferno.createVNode;\nObject.defineProperty(exports, "__esModule", { value: true });\nexports.g = void 0;\nexports.f = f;\nconst b_1 = require("b");\nfunction f() { return createVNode(1, "div", null, createComponentVNode(2, Foo), 2); }\nconst g = () => createVNode(1, "span", null, null, 1, { "a": b_1.a });\nexports.g = g;')
@@ -133,6 +211,31 @@ describe('Options and imports', function () {
             assert.equal(transformWith('import {Component} from "inferno";\nexport class A extends Component { render() { return <div/>; } }'), 'import { Component, createVNode } from "inferno";\nexport class A extends Component {\n    render() { return createVNode(1, "div"); }\n}')
         })
 
+        it('Should use a top-level createVNode function instead of importing', function () {
+            const code = transformWith('function createVNode(){}\nexport const a = <div/>;')
+
+            assert.equal(code, 'function createVNode() { }\nexport const a = createVNode(1, "div");')
+            expectNodeCanParse(code, 'module')
+        })
+
+        it('Should use createVNode imported from another module', function () {
+            const code = transformWith('import {createVNode} from "other-lib";\ncreateVNode;\nexport const a = <div/>;')
+
+            assert.equal(code, 'import { createVNode } from "other-lib";\ncreateVNode;\nexport const a = createVNode(1, "div");')
+            expectNodeCanParse(code, 'module')
+        })
+
+        it('Should not require helpers that are already declared for CommonJS', function () {
+            assert.equal(transformWith('function createVNode() {}\nexport const a = <div><Foo/></div>;', commonJS), '"use strict";\nvar $inferno = require("inferno");\nvar createComponentVNode = $inferno.createComponentVNode;\nObject.defineProperty(exports, "__esModule", { value: true });\nexports.a = void 0;\nfunction createVNode() { }\nexports.a = createVNode(1, "div", null, createComponentVNode(2, Foo), 2);')
+        })
+
+        it('Should use a unique name for the required module for CommonJS', function () {
+            const code = transformWith('const $inferno = 1;\nexport const a = <div/>;', commonJS)
+
+            expectNodeCanParse(code, 'commonjs')
+            assert.match(code, /^var (\$?\w+) = require\("inferno"\);$/m)
+        })
+
         it('Should not import helpers that are already imported', function () {
             assert.equal(transformWith('import {createVNode, createComponentVNode} from "inferno";\nexport const a = <div><Foo/></div>;'), 'import { createVNode, createComponentVNode } from "inferno";\nexport const a = createVNode(1, "div", null, createComponentVNode(2, Foo), 2);')
         })
@@ -170,6 +273,40 @@ describe('Options and imports', function () {
 
         it('Should ignore bindings named after other JSX runtimes', function () {
             assert.equal(transformWith('const _jsx = 1, jsx = 2;\n<div/>;'), 'import { createVNode } from "inferno";\nconst _jsx = 1, jsx = 2;\ncreateVNode(1, "div");')
+        })
+    })
+
+    describe('existing inferno imports without named bindings', function () {
+        it('Should import helpers next to a used namespace import', function () {
+            const code = transformWith('import * as Inferno from "inferno";\nInferno.render(<div/>, root);')
+
+            assert.match(code, /^import \* as Inferno from "inferno";$/m)
+            assert.match(code, /^import \{ createVNode \} from "inferno";$/m)
+            expectNodeCanParse(code, 'module')
+        })
+
+        it('Should import helpers next to a used default import', function () {
+            const code = transformWith('import Inferno from "inferno";\nInferno.render(<div/>, root);')
+
+            assert.match(code, /^import Inferno from "inferno";$/m)
+            assert.match(code, /^import \{ createVNode \} from "inferno";$/m)
+            expectNodeCanParse(code, 'module')
+        })
+
+        it('Should import helpers next to a default import whose named imports are elided', function () {
+            const code = transformWith('import Inferno, {Component} from "inferno";\nInferno.render(<div/>, root);')
+
+            assert.match(code, /^import Inferno(, \{ createVNode \})? from "inferno";$/m)
+            assert.match(code, /\bcreateVNode\b.* from "inferno";$/m)
+            expectNodeCanParse(code, 'module')
+        })
+
+        it('Should import helpers next to a side effect import', function () {
+            const code = transformWith('import "inferno";\nexport const a = <div/>;')
+
+            assert.match(code, /^import "inferno";$/m)
+            assert.match(code, /^import \{ createVNode \} from "inferno";$/m)
+            expectNodeCanParse(code, 'module')
         })
     })
 
@@ -213,6 +350,20 @@ describe('Options and imports', function () {
     })
 
     // JSX pragma comments are not supported; they stay in the output unchanged
+    describe('directives', function () {
+        it('Should import helpers after the "use strict" directive', function () {
+            assert.equal(transformWith('"use strict";\nconst a = <div/>;'), '"use strict";\nimport { createVNode } from "inferno";\nconst a = createVNode(1, "div");')
+        })
+
+        it('Should import helpers after the "use client" directive', function () {
+            assert.equal(transformWith('"use client";\nexport const a = <div/>;'), '"use client";\nimport { createVNode } from "inferno";\nexport const a = createVNode(1, "div");')
+        })
+
+        it('Should import helpers after the "use strict" prologue emitted by alwaysStrict', function () {
+            assert.equal(transformWith('const a = <div/>;', {alwaysStrict: true}), '"use strict";\nimport { createVNode } from "inferno";\nconst a = createVNode(1, "div");')
+        })
+    })
+
     describe('pragma comments', function () {
         it('Should ignore @jsx and @jsxFrag comments', function () {
             assert.equal(transformWith('/** @jsx h */\n/** @jsxFrag F */\n<><div/></>'), 'import { createFragment, createVNode } from "inferno";\n/** @jsx h */\n/** @jsxFrag F */\ncreateFragment([createVNode(1, "div")], 4);')

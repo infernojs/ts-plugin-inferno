@@ -1,70 +1,41 @@
 import * as ts from "typescript";
-import {isExpressionStatement} from "typescript";
-import {POSSIBLE_IMPORTS_TO_ADD} from "./index";
+import {
+    createHelperStatements,
+    createRequireStatement,
+    getDeclaredNames,
+    getPrologueLength,
+    getUniqueName
+} from "./utils/moduleUtils";
 
+/*
+ * Inserts var $inferno = require("inferno"); var createVNode = $inferno.createVNode; ... after the directives of
+ * `statements`. Helpers the statements already declare are used as they are, and $inferno gets another name when it
+ * is taken.
+ */
+export function insertRequireStatements(factory: ts.NodeFactory, statements: readonly ts.Statement[], helpers: string[], reservedNames: string[] = []) {
+    const declaredNames = getDeclaredNames(statements)
+    const helpersToAdd = helpers.filter(name => !declaredNames.has(name))
 
-export function handleCjsModules(sourceFile: ts.SourceFile, context: ts.TransformationContext) {
-    const factory = context.factory;
-    let statements = sourceFile.statements as any;
-    const specifiersToAdd: string[] = [];
-
-    for (const name of POSSIBLE_IMPORTS_TO_ADD) {
-        if (context[name]) {
-            specifiersToAdd.push(context['infernoImportSpecifiers'].get(name).name.text);
-        }
+    if (helpersToAdd.length === 0) {
+        return statements
+    }
+    for (const name of reservedNames) {
+        declaredNames.add(name)
     }
 
-    if (specifiersToAdd.length > 0) {
-        const matchedUseStrictStatement = statements.findIndex(
-            s => isExpressionStatement(s) && (s as any).expression?.text === 'use strict'
-        );
+    const moduleName = getUniqueName('$inferno', declaredNames)
+    const prologueLength = getPrologueLength(statements)
 
-        let infernoIdentifier = factory.createIdentifier("$inferno")
+    return [
+        ...statements.slice(0, prologueLength),
+        createRequireStatement(factory, moduleName),
+        ...createHelperStatements(factory, helpersToAdd, moduleName),
+        ...statements.slice(prologueLength)
+    ]
+}
 
-        for (const specifier of specifiersToAdd) {
-            let varStatement = factory.createVariableStatement(undefined, [
-                factory.createVariableDeclaration(
-                    specifier,
-                    undefined,
-                    undefined,
-                    factory.createPropertyAccessExpression(
-                        infernoIdentifier,
-                        specifier
-                    )
-                )
-            ]);
+export function handleCjsModules(sourceFile: ts.SourceFile, context: ts.TransformationContext, helpers: string[]) {
+    const statements = insertRequireStatements(context.factory, sourceFile.statements, helpers)
 
-            if (matchedUseStrictStatement === -1) {
-                statements.unshift(varStatement)
-            } else {
-                statements.splice(matchedUseStrictStatement + 1, 0, varStatement)
-            }
-        }
-
-        const reqStatement = factory.createVariableStatement(
-            undefined,
-            factory.createVariableDeclarationList([
-                factory.createVariableDeclaration(
-                    "$inferno",
-                    undefined,
-                    undefined,
-                    factory.createCallExpression(
-                        factory.createIdentifier("require"),
-                        [],
-                        [factory.createStringLiteral("inferno")]
-                    )
-                )
-            ]),
-        )
-
-        if (matchedUseStrictStatement === -1) {
-            statements.unshift(reqStatement)
-        } else {
-            statements.splice(matchedUseStrictStatement + 1, 0, reqStatement)
-        }
-
-        return factory.updateSourceFile(sourceFile, statements, false);
-    }
-
-    return sourceFile
+    return statements === sourceFile.statements ? sourceFile : context.factory.updateSourceFile(sourceFile, statements, false)
 }
