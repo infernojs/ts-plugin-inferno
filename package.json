@@ -18,7 +18,9 @@
     "inferno"
   ],
   "scripts": {
-    "test": "rimraf tests/temp && rimraf tests/tempES6 && ts-node tests/index.ts",
+    "test": "rimraf tests/temp && rimraf tests/tempES6 && ts-node tests/index.ts && npm run test:unit",
+    "test:unit": "node --require ts-node/register --test \"tests/unit/*.test.ts\"",
+    "test:bugs": "node --require ts-node/register --test \"tests/known-bugs/*.test.ts\"",
     "debug": "rimraf tests/temp && rimraf tests/tempES6 && npm run build && node --inspect-brk --require ts-node/register tests/index.ts",
     "build": "tsc",
     "overwrite-references": "ts-node tests/overwriteReferences.ts",
@@ -33,9 +35,9 @@
     "typescript": "^6"
   },
   "devDependencies": {
-    "@types/node": "^26.2.0",
+    "@types/node": "^26.6.2",
     "cross-env": "^10.1.0",
-    "fs-extra": "^11.4.0",
+    "fs-extra": "^11.4.1",
     "glob": "^13.0.6",
     "inferno": "^9.1.0",
     "rimraf": "^6.1.3",

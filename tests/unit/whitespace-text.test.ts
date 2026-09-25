@@ -1,0 +1,125 @@
+import {describe, it} from 'node:test'
+import * as assert from 'node:assert/strict'
+import {transform, run} from './helpers'
+
+describe('Whitespace and text', () => {
+    describe('multi-line text', () => {
+        it('Should join multi-line text with a single space', () => {
+            assert.equal(transform('<div>\n  hello\n  world\n</div>'), 'createVNode(1, "div", null, "hello world", 16);')
+        })
+
+        it('Should drop blank lines inside multi-line text', () => {
+            assert.equal(transform('<div>\n  a\n\n  b\n</div>'), 'createVNode(1, "div", null, "a b", 16);')
+        })
+
+        it('Should drop whitespace-only first and last lines', () => {
+            assert.equal(transform('<div>  \n  a  \n  </div>'), 'createVNode(1, "div", null, "a", 16);')
+        })
+
+        it('Should drop a trailing whitespace-only line after text', () => {
+            assert.equal(transform('<div>a  \n  </div>'), 'createVNode(1, "div", null, "a", 16);')
+        })
+
+        it('Should keep trailing spaces of the last line', () => {
+            assert.equal(transform('<div>\n  a\n  b  </div>'), 'createVNode(1, "div", null, "a b  ", 16);')
+        })
+
+        it('Should convert tabs to spaces and trim tab indentation', () => {
+            assert.equal(transform('<div>\n\t\ta\n\t\tb\n</div>'), 'createVNode(1, "div", null, "a b", 16);')
+        })
+
+        it('Should treat \\r\\n as a line break', () => {
+            assert.equal(transform('<div>a\r\nb</div>'), 'createVNode(1, "div", null, "a b", 16);')
+        })
+
+        it('Should treat a lone \\r as a line break', () => {
+            assert.equal(transform('<div>a\rb</div>'), 'createVNode(1, "div", null, "a b", 16);')
+        })
+
+        it('Should remove whitespace-only multi-line children of an element', () => {
+            assert.equal(transform('<div>\n\n</div>'), 'createVNode(1, "div");')
+        })
+    })
+
+    describe('single-line text', () => {
+        it('Should keep leading and trailing spaces of single-line text', () => {
+            assert.equal(transform('<div>  hello  </div>'), 'createVNode(1, "div", null, "  hello  ", 16);')
+        })
+
+        it('Should convert tabs inside single-line text to spaces', () => {
+            assert.equal(transform('<div>\ta\tb\t</div>'), 'createVNode(1, "div", null, " a b ", 16);')
+        })
+
+        /*
+         * babel wraps whitespace-only text between expressions in createTextVNode, this plugin passes it as a string.
+         * childFlags 0 (UnknownChildren) makes Inferno normalize the string into a text vNode, so both render the same.
+         */
+        it('Should keep a single space between two expressions', () => {
+            assert.equal(transform('<div>{a} {b}</div>'), 'createVNode(1, "div", null, [a, " ", b], 0);')
+        })
+
+        it('Should keep a single space between two expressions with type assertions', () => {
+            assert.equal(transform('<div>{a as string} {b!}</div>'), 'createVNode(1, "div", null, [a, " ", b], 0);')
+        })
+
+        it('Should keep spaces around a single expression on one line', () => {
+            assert.equal(transform('<div>  {a}  </div>'), 'createVNode(1, "div", null, ["  ", a, "  "], 0);')
+        })
+
+        it('Should drop a line break between two expressions', () => {
+            assert.equal(transform('<div>{a}\n{b}</div>'), 'createVNode(1, "div", null, [a, b], 0);')
+        })
+
+        it('Should drop indentation between expressions', () => {
+            assert.equal(transform('<div>\n  {a}\n  {b}\n</div>'), 'createVNode(1, "div", null, [a, b], 0);')
+        })
+    })
+
+    describe('text next to expressions', () => {
+        it('Should keep the space between text and an expression on the same line', () => {
+            assert.equal(transform('<div>\n  foo {bar}\n</div>'), 'createVNode(1, "div", null, [createTextVNode("foo "), bar], 0);')
+        })
+
+        it('Should split text lines separated by an expression line', () => {
+            assert.equal(transform('<div>\n  foo\n  {bar}\n  baz\n</div>'), 'createVNode(1, "div", null, [createTextVNode("foo"), bar, createTextVNode("baz")], 0);')
+        })
+
+        it('Should keep an explicit {" "} child', () => {
+            assert.equal(transform('<div>{a}{" "}{b}</div>'), 'createVNode(1, "div", null, [a, " ", b], 0);')
+        })
+    })
+
+    describe('whitespace-only children', () => {
+        it('Should pass single-line whitespace as component children', () => {
+            assert.equal(transform('<Foo>  </Foo>'), 'createComponentVNode(2, Foo, { "children": "  " });')
+        })
+
+        it('Should pass single-line whitespace as children of a component with type arguments', () => {
+            assert.equal(transform('<Foo<Props>>  </Foo>'), 'createComponentVNode(2, Foo, { "children": "  " });')
+        })
+
+        it('Should drop indentation around a single component child', () => {
+            assert.equal(transform('<Foo>\n  <div/>\n</Foo>'), 'createComponentVNode(2, Foo, { "children": createVNode(1, "div") });')
+        })
+
+        it('Should create no children for a component with only a line break', () => {
+            assert.equal(transform('<Baz>\n</Baz>'), 'createComponentVNode(2, Baz);')
+        })
+
+        it('Should create an empty fragment when it only contains whitespace lines', () => {
+            assert.equal(transform('<>\n  \n</>'), 'createFragment();')
+        })
+    })
+
+    // TypeScript prints a non-breaking space as  , run() checks the runtime value
+    describe('non-breaking spaces', () => {
+        it('Should not trim &nbsp; on its own line', () => {
+            assert.equal(transform('<div>\n  &nbsp;\n</div>'), 'createVNode(1, "div", null, "\\u00A0", 16);')
+            assert.equal(run('<div>\n  &nbsp;\n</div>').children, '\xA0')
+        })
+
+        it('Should only trim spaces and tabs, not literal non-breaking spaces', () => {
+            assert.equal(transform('<div>\n   a \n</div>'), 'createVNode(1, "div", null, "\\u00A0a\\u00A0", 16);')
+        })
+    })
+})
