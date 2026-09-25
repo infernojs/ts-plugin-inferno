@@ -145,7 +145,7 @@ describe('Babel parity', () => {
 
     describe('babel-parser jsx fixtures', () => {
         it('basic/3', () => {
-            assert.equal(transform('<a n:foo="bar"> {value} <b><c /></b></a>'), 'createVNode(1, "a", null, [" ", value, " ", createVNode(1, "b", null, createVNode(1, "c"), 2)], 0, { "n:foo": "bar" });')
+            assert.equal(transform('<a n:foo="bar"> {value} <b><c /></b></a>'), 'createVNode(1, "a", null, [createTextVNode(" "), value, createTextVNode(" "), createVNode(1, "b", null, createVNode(1, "c"), 2)], 0, { "n:foo": "bar" });')
         })
 
         it('basic/6', () => {

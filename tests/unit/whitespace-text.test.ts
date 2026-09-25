@@ -55,15 +55,15 @@ describe('Whitespace and text', () => {
          * childFlags 0 (UnknownChildren) makes Inferno normalize the string into a text vNode, so both render the same.
          */
         it('Should keep a single space between two expressions', () => {
-            assert.equal(transform('<div>{a} {b}</div>'), 'createVNode(1, "div", null, [a, " ", b], 0);')
+            assert.equal(transform('<div>{a} {b}</div>'), 'createVNode(1, "div", null, [a, createTextVNode(" "), b], 0);')
         })
 
         it('Should keep a single space between two expressions with type assertions', () => {
-            assert.equal(transform('<div>{a as string} {b!}</div>'), 'createVNode(1, "div", null, [a, " ", b], 0);')
+            assert.equal(transform('<div>{a as string} {b!}</div>'), 'createVNode(1, "div", null, [a, createTextVNode(" "), b], 0);')
         })
 
         it('Should keep spaces around a single expression on one line', () => {
-            assert.equal(transform('<div>  {a}  </div>'), 'createVNode(1, "div", null, ["  ", a, "  "], 0);')
+            assert.equal(transform('<div>  {a}  </div>'), 'createVNode(1, "div", null, [createTextVNode("  "), a, createTextVNode("  ")], 0);')
         })
 
         it('Should drop a line break between two expressions', () => {
@@ -109,6 +109,14 @@ describe('Whitespace and text', () => {
         it('Should create an empty fragment when it only contains whitespace lines', () => {
             assert.equal(transform('<>\n  \n</>'), 'createFragment();')
         })
+
+        it('Should keep single-line whitespace inside a long syntax Fragment', () => {
+            assert.equal(transform('<Fragment>  </Fragment>'), 'createFragment([createTextVNode("  ")], 4);')
+        })
+
+        it('Should keep single-line whitespace inside a short syntax fragment', () => {
+            assert.equal(transform('<>  </>'), 'createFragment([createTextVNode("  ")], 4);')
+        })
     })
 
     // TypeScript prints a non-breaking space as  , run() checks the runtime value
@@ -116,6 +124,10 @@ describe('Whitespace and text', () => {
         it('Should not trim &nbsp; on its own line', () => {
             assert.equal(transform('<div>\n  &nbsp;\n</div>'), 'createVNode(1, "div", null, "\\u00A0", 16);')
             assert.equal(run('<div>\n  &nbsp;\n</div>').children, '\xA0')
+        })
+
+        it('Should keep literal non-breaking spaces', () => {
+            assert.equal(transform('<div>   </div>'), 'createVNode(1, "div", null, "\\u00A0 \\u00A0", 16);')
         })
 
         it('Should only trim spaces and tabs, not literal non-breaking spaces', () => {

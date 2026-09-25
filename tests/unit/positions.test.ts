@@ -1,6 +1,8 @@
 import {describe, it} from 'node:test'
 import * as assert from 'node:assert/strict'
-import {transform} from './helpers'
+import * as ts from 'typescript'
+import transformer from '../../src'
+import {stripInfernoImport, transform} from './helpers'
 
 describe('JSX positions', function () {
     describe('expression positions', function () {
@@ -34,6 +36,35 @@ describe('JSX positions', function () {
 
         it('Should compile JSX used as a component variable', function () {
             assert.equal(transform('let Foo = <div />;\n<Foo />;'), 'let Foo = createVNode(1, "div");\ncreateComponentVNode(2, Foo);')
+        })
+    })
+
+    describe('JSX created by other transformers', function () {
+        it('Should compile JSX nodes built without source locations', function () {
+            const makeJSX: ts.TransformerFactory<ts.SourceFile> = context => {
+                const {factory} = context
+                const visit = (node: ts.Node): ts.Node => {
+                    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'makeJSX') {
+                        return factory.createJsxElement(
+                            factory.createJsxOpeningElement(factory.createIdentifier('div'), undefined, factory.createJsxAttributes([
+                                factory.createJsxAttribute(factory.createIdentifier('title'), factory.createStringLiteral('generated'))
+                            ])),
+                            [factory.createJsxText('text')],
+                            factory.createJsxClosingElement(factory.createIdentifier('div'))
+                        )
+                    }
+                    return ts.visitEachChild(node, visit, context)
+                }
+
+                return sourceFile => ts.visitNode(sourceFile, visit) as ts.SourceFile
+            }
+            const code = ts.transpileModule('const el = makeJSX();', {
+                fileName: 'file.tsx',
+                compilerOptions: {jsx: ts.JsxEmit.Preserve, target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext, ignoreDeprecations: '6.0', alwaysStrict: false},
+                transformers: {before: [makeJSX], after: [transformer()]}
+            }).outputText
+
+            assert.equal(stripInfernoImport(code), 'const el = createVNode(1, "div", null, "text", 16, { "title": "generated" });\n')
         })
     })
 })

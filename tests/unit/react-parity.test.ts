@@ -97,9 +97,8 @@ describe('React parity', () => {
     })
 
     describe('compiler fixtures', () => {
-        // Plain strings are fine next to ChildFlags.UnknownChildren (0): Inferno normalizes them into text vNodes
         it('Should keep JSX text and a string literal child apart (preserve-jsxtext-stringliteral-distinction)', () => {
-            assert.equal(transform('<div> {", "}</div>'), 'createVNode(1, "div", null, [" ", ", "], 0);')
+            assert.equal(transform('<div> {", "}</div>'), 'createVNode(1, "div", null, [createTextVNode(" "), createTextVNode(", ")], 0);')
         })
 
         it('Should compile nested member expression tags (jsx-member-expression)', () => {
@@ -148,9 +147,8 @@ describe('React parity', () => {
             assert.equal(transform('<div>{" "}{" "}{" "}</div>'), 'createVNode(1, "div", null, [" ", " ", " "], 0);')
         })
 
-        // Plain strings are fine next to ChildFlags.UnknownChildren (0): Inferno normalizes them into text vNodes
         it('Should keep a space between two expressions in an option (ReactDOMOption)', () => {
-            assert.equal(transform('<option>\n  {1} {"foo"}\n</option>'), 'createVNode(1, "option", null, [1, " ", "foo"], 0);')
+            assert.equal(transform('<option>\n  {1} {"foo"}\n</option>'), 'createVNode(1, "option", null, [1, createTextVNode(" "), createTextVNode("foo")], 0);')
         })
 
         it('Should split text around an expression in an option (ReactDOMOption)', () => {
@@ -179,6 +177,10 @@ describe('React parity', () => {
 
         it('Should keep a whitespace-only line between inline elements (whitespace transformer README)', () => {
             assert.equal(transform('<div>\n  Monkeys:\n  <input type="text" /> <button />\n</div>'), 'createVNode(1, "div", null, [createTextVNode("Monkeys:"), createVNode(64, "input", null, null, 1, { "type": "text" }), createTextVNode(" "), createVNode(1, "button")], 4);')
+        })
+
+        it('Should keep a whitespace-only text between inline elements as a text vNode (whitespace transformer README)', () => {
+            assert.equal(transform('<div><b/> <i/></div>'), 'createVNode(1, "div", null, [createVNode(1, "b"), createTextVNode(" "), createVNode(1, "i")], 4);')
         })
     })
 

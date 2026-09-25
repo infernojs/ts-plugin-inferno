@@ -2,6 +2,7 @@ import {
     BinaryExpression,
     Expression,
     getLineAndCharacterOfPosition,
+    idText,
     ImportSpecifier,
     JsxAttributeLike,
     JsxChild,
@@ -9,6 +10,7 @@ import {
     JsxExpression,
     JsxFragment,
     JsxSelfClosingElement,
+    JsxText,
     Node,
     NodeArray,
     ParenthesizedExpression,
@@ -238,7 +240,8 @@ export default () => {
                     return createVNode(<JsxSelfClosingElement>node)
 
                 case SyntaxKind.JsxText:
-                    let text = handleWhiteSpace(node.getFullText())
+                    // The text property instead of the source text, so JSX built by other transformers works too
+                    let text = handleWhiteSpace((<JsxText>node).text)
 
                     if (text !== '') {
                         // Whitespace is collapsed first, so encoded characters like &#10; are kept like in TypeScript's JSX emit
@@ -603,7 +606,10 @@ export default () => {
                     flags = VNodeFlags.ComponentUnknown
                 }
             } else {
-                const text = type.getText()
+                // Read from the node instead of the source text, so JSX built by other transformers works too
+                const text = type.kind === SyntaxKind.JsxNamespacedName
+                    ? `${idText(type.namespace)}:${idText(type.name)}`
+                    : type.kind === SyntaxKind.ThisKeyword ? 'this' : idText(type)
 
                 if (isFragment(text)) {
                     vNodeType = TYPE_FRAGMENT
@@ -821,10 +827,8 @@ export default () => {
                 if (child.kind === SyntaxKind.JsxExpression) {
                     requiresNormalization = true
                     hasSpreadChild = hasSpreadChild || child.dotDotDotToken !== undefined
-                } else if (
-                    child.kind === SyntaxKind.JsxText &&
-                    handleWhiteSpace(child.getText()) !== ''
-                ) {
+                } else if (child.kind === SyntaxKind.JsxText && vNode != null) {
+                    // The visitor drops text that collapses to nothing, whitespace that is kept is text as well
                     foundText = true
                 }
 
