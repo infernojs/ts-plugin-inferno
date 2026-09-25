@@ -1,6 +1,5 @@
 # ts-plugin-inferno
 
-[![travis](https://app.travis-ci.com/infernojs/ts-plugin-inferno.svg?branch=master)](https://app.travis-ci.com/github/infernojs/ts-plugin-inferno)
 [![npm version](https://badge.fury.io/js/ts-plugin-inferno.svg)](https://badge.fury.io/js/ts-plugin-inferno)
 
 Typescript JSX transformer for [InfernoJS](https://github.com/infernojs/inferno).
