@@ -1,4 +1,8 @@
 import {SyntaxKind} from "typescript";
+import decodeEntities from "./decodeEntities";
+
+// A line break and the indentation after it, JSX attribute strings may span lines but JavaScript strings may not
+const LINE_BREAK_AND_INDENT = /\r?\n\s+/g;
 
 export default function getValue(node, visitor, factory) {
     // A valueless attribute, e.g. <input checked />
@@ -6,7 +10,9 @@ export default function getValue(node, visitor, factory) {
         return factory.createTrue();
     }
     if (node.kind === SyntaxKind.StringLiteral) {
-        return factory.createStringLiteral(node.text);
+        // JSX strings have no escape sequences, the text is taken as written. Line breaks in the source are collapsed
+        // to a space like Babel's JSX transform does, then entities are decoded like TypeScript's JSX transform does.
+        return factory.createStringLiteral(decodeEntities(node.text.replace(LINE_BREAK_AND_INDENT, ' ')));
     }
     if (node.kind === SyntaxKind.JsxExpression) {
         if (!node.expression) {

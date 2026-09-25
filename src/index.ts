@@ -6,7 +6,6 @@ import {
     JsxAttributeLike,
     JsxChild,
     JsxElement,
-    JsxEmit,
     JsxExpression,
     JsxFragment,
     JsxSelfClosingElement,
@@ -17,7 +16,6 @@ import {
     SyntaxKind,
     TransformationContext,
     Transformer,
-    transpile,
     visitEachChild,
     visitNode,
     VisitResult
@@ -27,6 +25,7 @@ import isComponent from './utils/isComponent'
 import isFragment from './utils/isFragment'
 import createAssignHelper from './utils/createAssignHelper'
 import getValue from './utils/getValue'
+import decodeEntities from './utils/decodeEntities'
 import mayHaveSideEffects from './utils/mayHaveSideEffects'
 import svgAttributes from './utils/svgAttributes'
 import attributeTransforms from './utils/attributeTransforms'
@@ -178,18 +177,8 @@ export default () => {
                     let text = handleWhiteSpace(node.getFullText())
 
                     if (text !== '') {
-                        /**
-                         * TypeScript internal module, src/compiler/transformers/jsx.ts,
-                         * unescapes HTML entities such as &nbsp; in JSX text that is
-                         * directly inside an element or a fragment.
-                         */
-                        return factory.createStringLiteral(
-                            JSON.parse(
-                                // alwaysStrict must stay off, otherwise the emit is prefixed with a "use strict" prologue
-                                transpile(`<>${text}</>`, {jsx: JsxEmit.React, alwaysStrict: false})
-                                    .replace(/^[\s\S]*?("[\s\S]*")[\s\S]*?$/, '$1')
-                            )
-                        )
+                        // Whitespace is collapsed first, so encoded characters like &#10; are kept like in TypeScript's JSX emit
+                        return factory.createStringLiteral(decodeEntities(text))
                     }
                     break
 
@@ -371,7 +360,7 @@ export default () => {
 
                 if (usesPropChildren) {
                     if (vProps.propChildren.kind === SyntaxKind.StringLiteral) {
-                        text = handleWhiteSpace(vProps.propChildren.text)
+                        text = decodeEntities(handleWhiteSpace(vProps.propChildren.text))
                         if (text !== '') {
                             if (vType.vNodeType !== TYPE_FRAGMENT) {
                                 childrenResults.foundText = true

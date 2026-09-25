@@ -35,6 +35,21 @@ describe('Entities and strings', () => {
             expectValidJS(code)
         })
 
+        it('Should decode &#0000; to a NUL character', () => {
+            const code = transform('<div>&#0000;</div>')
+
+            assert.equal(code, 'createVNode(1, "div", null, "\\0", 16);')
+            expectValidJS(code)
+        })
+
+        it('Should decode &#11; to a vertical tab', () => {
+            assert.equal(transform('<div>&#11;</div>'), 'createVNode(1, "div", null, "\\v", 16);')
+        })
+
+        it('Should keep a numeric entity outside of Unicode verbatim', () => {
+            assert.equal(transform('<div>&#x110000;</div>'), 'createVNode(1, "div", null, "&#x110000;", 16);')
+        })
+
         it('Should keep unknown entities verbatim', () => {
             const code = transform('<div>&nosuch;</div>')
 
@@ -138,22 +153,33 @@ describe('Entities and strings', () => {
         })
     })
 
-    // Collapsing the line breaks like babel does is covered in tests/known-bugs/entities-strings.test.ts
     describe('attribute strings with line breaks', () => {
-        it('Should compile a multi-line className to valid code', () => {
-            expectValidJS(transform('<div className="flex\n    items-center\n    gap-2">x</div>'))
+        it('Should compile a multi-line className', () => {
+            const code = transform('<div className="flex\n    items-center\n    gap-2">x</div>')
+
+            expectValidJS(code)
+            assert.equal(code, 'createVNode(1, "div", "flex items-center gap-2", "x", 16);')
         })
 
-        it('Should compile a multi-line svg path to valid code (babel-parser regression/7)', () => {
-            expectValidJS(transform('<path d="M230 80\n\t\tA 45 45, 0, 1, 0, 275 125\n    L 275 80 Z"/>'))
+        it('Should compile a multi-line svg path (babel-parser regression/7)', () => {
+            const code = transform('<path d="M230 80\n\t\tA 45 45, 0, 1, 0, 275 125\n    L 275 80 Z"/>')
+
+            expectValidJS(code)
+            assert.equal(code, 'createVNode(32, "path", null, null, 1, { "d": "M230 80 A 45 45, 0, 1, 0, 275 125 L 275 80 Z" });')
         })
 
-        it('Should compile a multi-line prop on an element to valid code', () => {
-            expectValidJS(transform('<div title="a\n   b" />'))
+        it('Should compile a multi-line prop on an element', () => {
+            const code = transform('<div title="a\n   b" />')
+
+            expectValidJS(code)
+            assert.equal(code, 'createVNode(1, "div", null, null, 1, { "title": "a b" });')
         })
 
-        it('Should compile a multi-line prop on a component to valid code (transform-react-inline-elements regressions/6276)', () => {
-            expectValidJS(transform('<T default="\n    some string\n  " />'))
+        it('Should compile a multi-line prop on a component (transform-react-inline-elements regressions/6276)', () => {
+            const code = transform('<T default="\n    some string\n  " />')
+
+            expectValidJS(code)
+            assert.equal(code, 'createComponentVNode(2, T, { "default": " some string " });')
         })
 
         it('Should compile a line break that is not followed by whitespace', () => {
@@ -168,7 +194,10 @@ describe('Entities and strings', () => {
         })
 
         it('Should compile an attribute with a CRLF line break', () => {
-            expectValidJS(transform('<div a="x\r\n   y" />'))
+            const code = transform('<div a="x\r\n   y" />')
+
+            expectValidJS(code)
+            assert.equal(code, 'createVNode(1, "div", null, null, 1, { "a": "x y" });')
         })
     })
 
@@ -212,7 +241,53 @@ describe('Entities and strings', () => {
         })
     })
 
+    describe('attribute strings with entities', () => {
+        it('Should decode entities in element props', () => {
+            assert.equal(transform('<div title="a&amp;b" />'), 'createVNode(1, "div", null, null, 1, { "title": "a&b" });')
+        })
+
+        it('Should decode entities in component props', () => {
+            assert.equal(transform('<Foo title="a&amp;b" />'), 'createComponentVNode(2, Foo, { "title": "a&b" });')
+        })
+
+        it('Should decode entities in className', () => {
+            assert.equal(transform('<div className="a &amp; b" />'), 'createVNode(1, "div", "a & b");')
+        })
+
+        it('Should decode quote entities in class', () => {
+            assert.equal(transform('<div class="&quot;q&quot;" />'), 'createVNode(1, "div", "\\"q\\"");')
+        })
+
+        it('Should decode entities in key', () => {
+            assert.equal(transform('<div key="a&amp;b" />'), 'createVNode(1, "div", null, null, 1, null, "a&b");')
+        })
+
+        it('Should decode named entities (oxc attribute-escapes)', () => {
+            assert.equal(transform('<Foo bar="&Egrave; &euro; &quot;" />'), 'createComponentVNode(2, Foo, { "bar": "\\u00C8 \\u20AC \\"" });')
+        })
+
+        it('Should decode numeric entities (oxc attribute-escapes)', () => {
+            assert.equal(transform('<Foo bar="&#xC; &#x41;" />'), 'createComponentVNode(2, Foo, { "bar": "\\f A" });')
+        })
+
+        it('Should decode &amp; and keep unknown entities (babel-parser basic/4)', () => {
+            assert.equal(transform('<a d="&amp;" e="&ampr;" />'), 'createVNode(1, "a", null, null, 1, { "d": "&", "e": "&ampr;" });')
+        })
+
+        // Line breaks in the source are collapsed before entities are decoded, like in text; babel collapses the decoded one too
+        it('Should keep an encoded line break in an attribute string', () => {
+            assert.equal(transform('<div title="a&#10;\n  b" />'), 'createVNode(1, "div", null, null, 1, { "title": "a\\n b" });')
+        })
+    })
+
     describe('children prop strings', () => {
+        it('Should decode entities in an element children prop string', () => {
+            const code = transform('<div children="a&amp;b" />')
+
+            assert.equal(code, 'createVNode(1, "div", null, "a&b", 16);')
+            expectValidJS(code)
+        })
+
         it('Should keep a whitespace-only element children prop string', () => {
             assert.equal(transform('<div children="   " />'), 'createVNode(1, "div", null, "   ", 16);')
         })
