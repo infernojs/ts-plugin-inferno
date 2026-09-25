@@ -27,6 +27,14 @@ describe('Special flags', () => {
         it('Should strip type syntax from a $ChildFlag expression', () => {
             assert.equal(transform('<div $ChildFlag={flag as ChildFlags}>{a}</div>'), 'createVNode(1, "div", null, a, flag);')
         })
+
+        it('Should prefer $Flags over $ReCreate and contentEditable', () => {
+            assert.equal(transform('<div $ReCreate contentEditable $Flags={9}/>'), 'createVNode(9, "div", null, null, 1, { "contentEditable": true });')
+        })
+
+        it('Should use a $Flags expression as the flags of a generic component', () => {
+            assert.equal(transform('<Foo<T> $Flags={flags as number} />'), 'createComponentVNode(flags, Foo);')
+        })
     })
 
     describe('$ReCreate', () => {
@@ -58,6 +66,15 @@ describe('Special flags', () => {
 
         it('Should ignore child flags on components', () => {
             assert.equal(transform('<Foo $HasKeyedChildren>{a}</Foo>'), 'createComponentVNode(2, Foo, { "children": a });')
+        })
+
+        it('Should keep $Flags with a spread', () => {
+            assert.equal(transform('<div $Flags={1} {...p}/>'), 'normalizeProps(createVNode(1, "div", null, null, 1, Object.assign({}, p)));')
+        })
+
+        // Fragments have no flags argument, like babel the $Flags prop is dropped
+        it('Should drop $Flags on a Fragment', () => {
+            assert.equal(transform('<Fragment $Flags={1}>x</Fragment>'), 'createFragment([createTextVNode("x")], 4);')
         })
 
         it('Should keep $HasVNodeChildren with a spread', () => {

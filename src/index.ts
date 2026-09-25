@@ -48,6 +48,7 @@ let PROP_VNODE_CHILDREN = '$HasVNodeChildren'
 let PROP_TEXT_CHILDREN = '$HasTextChildren'
 let PROP_ReCreate = '$ReCreate'
 let PROP_ChildFlag = '$ChildFlag'
+let PROP_Flags = '$Flags'
 
 const TYPE_ELEMENT = 0
 const TYPE_COMPONENT = 1
@@ -545,7 +546,7 @@ export default () => {
                     getImportSpecifier('createComponentVNode'),
                     [],
                     createComponentVNodeArgs(
-                        flags,
+                        vProps.flagsOverride || flags,
                         vType.type,
                         vProps.props,
                         vProps.key,
@@ -558,7 +559,7 @@ export default () => {
                     getImportSpecifier('createVNode'),
                     [],
                     createVNodeArgs(
-                        flags,
+                        vProps.flagsOverride || flags,
                         vType.type,
                         vProps.className,
                         vChildren,
@@ -649,6 +650,7 @@ export default () => {
             let childrenKnown = false
             let needsNormalization = false
             let hasReCreateFlag = false
+            let flagsOverride = null
             let propChildren = null
             let childrenProp = null
             let childFlags = null
@@ -777,6 +779,10 @@ export default () => {
                             case PROP_ReCreate:
                                 hasReCreateFlag = true
                                 break
+                            case PROP_Flags:
+                                // Replaces the flags of an element or a component, e.g. $Flags={VNodeFlags.InputElement}
+                                flagsOverride = getValue(initializer, visitor, factory)
+                                break
                             default:
                                 if (propName.toLowerCase() === 'contenteditable') {
                                     contentEditable = true
@@ -817,6 +823,7 @@ export default () => {
                 className: className == null ? null : className,
                 childFlags: childFlags,
                 hasReCreateFlag: hasReCreateFlag,
+                flagsOverride: flagsOverride,
                 needsNormalization: needsNormalization,
                 contentEditable: contentEditable,
                 hasTextChildren: hasTextChildren,
@@ -889,12 +896,12 @@ export default () => {
             }
         }
 
-        function createComponentVNodeArgs(flags: string, type: any, props: Expression[], key: any, ref: any) {
+        function createComponentVNodeArgs(flags: number | Expression, type: any, props: Expression[], key: any, ref: any) {
             let args = []
             let hasProps = props.length > 0
             let hasKey = !isNodeNull(key)
             let hasRef = !isNodeNull(ref)
-            args.push(factory.createNumericLiteral(flags + ''))
+            args.push(typeof flags === 'number' ? factory.createNumericLiteral(flags + '') : flags)
             args.push(type)
 
             if (hasProps) {
@@ -936,7 +943,7 @@ export default () => {
             let hasProps = props.length > 0
             let hasKey = !isNodeNull(key)
             let hasRef = !isNodeNull(ref)
-            args.push(factory.createNumericLiteral(flags + ''))
+            args.push(typeof flags === 'number' ? factory.createNumericLiteral(flags + '') : flags)
             args.push(type)
 
             if (hasClassName) {
