@@ -7,3 +7,5 @@ tests/tempES6
 **/.fusebox
 **/.rpt2_cache
 .idea
+bench/.cache
+bench/results

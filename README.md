@@ -70,6 +70,29 @@ Overwrite references by running the following command: `npm run overwrite-refere
 
 Run `npm test` again to verify that all tests are passing.
 
+## Benchmarks
+
+`bench/` measures how much time and memory the plugin itself costs, separated from what TypeScript costs anyway.
+It has no dependencies beyond the ones the tests use.
+
+```bash
+npm run bench            # every case, about 5 minutes
+npm run bench:quick      # shorter runs, without the largest case
+npm run bench:compare    # working tree against HEAD; pass another ref with -- --baseline <ref>
+npm run bench:profile    # CPU and allocation profile of the plugin functions (case mixed-M)
+node bench/run.js --help # filters, compiler options, rounds, output file
+```
+
+The plugin is built from `src/` into `bench/.cache/` for every run; a git baseline is extracted and built the same way,
+so the two only differ by the plugin's code. `--baseline` also takes a directory with a built plugin, e.g. a copy of
+the published package.
+
+The cases are the same as in babel-plugin-inferno's benchmark, so the results of the two plugins compare: hand-written
+components in `bench/fixtures/` (a TodoMVC app, a dashboard, an SVG icon set, an article and a TSX form) and generated
+modules from `bench/generate.js`: random but seeded component trees of 200, 2,000 and 20,000 JSX nodes
+(`mixed-S/M/L`), a list of 2,000 keyed children (`wide-M`) and elements nested 200 deep (`deep-M`).
+
+
 ## Credits
 
 This is fork of awesome [ts-transform-inferno](https://github.com/deamme/ts-transform-inferno)!
