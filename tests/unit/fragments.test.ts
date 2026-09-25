@@ -1,6 +1,6 @@
 import {describe, it} from 'node:test'
 import * as assert from 'node:assert/strict'
-import {transform} from './helpers'
+import {transform, transformWith} from './helpers'
 
 describe('Fragments', () => {
     describe('keyed fragments', () => {
@@ -38,6 +38,37 @@ describe('Fragments', () => {
 
         it('Should strip a type assertion from a Fragment key', () => {
             assert.equal(transform('<Fragment key={k as string}><a/></Fragment>'), 'createFragment([createVNode(1, "a")], 4, k);')
+        })
+    })
+
+    // Cases from swc-plugin-inferno tests/babel_plugin_inferno/fragments.rs, ported from babel-plugin-inferno a8418df
+    describe('$HasTextChildren', () => {
+        it('Should compile static text into a text vNode', () => {
+            assert.equal(transform('<Fragment $HasTextChildren>text</Fragment>'), 'createFragment([createTextVNode("text")], 4);')
+        })
+
+        it('Should not import createTextVNode without children', () => {
+            assert.equal(transformWith('<Fragment $HasTextChildren />'), 'import { createFragment } from "inferno";\ncreateFragment();')
+        })
+
+        it('Should not import createTextVNode for a null children prop', () => {
+            assert.equal(transformWith('<Fragment $HasTextChildren children={null} />'), 'import { createFragment } from "inferno";\ncreateFragment();')
+        })
+    })
+
+    describe('$HasVNodeChildren', () => {
+        it('Should put a static element child in an array', () => {
+            assert.equal(transform('<Fragment $HasVNodeChildren><a/></Fragment>'), 'createFragment([createVNode(1, "a")], 4);')
+        })
+
+        it('Should compile static text into a text vNode', () => {
+            assert.equal(transform('<Fragment $HasVNodeChildren>text</Fragment>'), 'createFragment([createTextVNode("text")], 4);')
+        })
+    })
+
+    describe('string children prop', () => {
+        it('Should create an empty Fragment for an empty children prop string', () => {
+            assert.equal(transformWith('<Fragment children="" />'), 'import { createFragment } from "inferno";\ncreateFragment();')
         })
     })
 

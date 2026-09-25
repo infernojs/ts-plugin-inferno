@@ -310,6 +310,40 @@ describe('Options and imports', function () {
         })
     })
 
+    /*
+     * Cases from swc-plugin-inferno tests/babel_plugin_inferno/options_imports.rs (babel-plugin-inferno's sourceType
+     * tests). A file without imports and exports is a script, unless moduleDetection is "force". Scripts cannot contain
+     * import declarations, so babel-plugin-inferno requires the helpers there; with ES module output this plugin does
+     * not yet, see tests/known-bugs/options-imports.test.ts.
+     */
+    describe('script files', function () {
+        it('Should use a top-level createVNode function instead of importing in a script', function () {
+            assert.equal(transformWith('function createVNode(){}\nconst a = <div/>;'), 'function createVNode() { }\nconst a = createVNode(1, "div");')
+        })
+
+        it('Should import helpers in a file that moduleDetection forces to be a module', function () {
+            assert.equal(transformWith('const a = <div/>;', {moduleDetection: ts.ModuleDetectionKind.Force}), 'import { createVNode } from "inferno";\nconst a = createVNode(1, "div");\nexport {};')
+        })
+
+        it('Should require helpers in a script for CommonJS', function () {
+            const code = transformWith('const a = require("x");\nconst b = <div/>;', commonJS)
+
+            assert.equal(code, 'var $inferno = require("inferno");\nvar createVNode = $inferno.createVNode;\nconst a = require("x");\nconst b = createVNode(1, "div");')
+            expectNodeCanParse(code, 'commonjs')
+        })
+
+        it('Should require every used helper in a script for CommonJS', function () {
+            const code = transformWith('const a = <div><Foo {...p}/>text<></></div>;', commonJS)
+
+            assert.equal(code, 'var $inferno = require("inferno");\nvar normalizeProps = $inferno.normalizeProps;\nvar createTextVNode = $inferno.createTextVNode;\nvar createComponentVNode = $inferno.createComponentVNode;\nvar createVNode = $inferno.createVNode;\nvar createFragment = $inferno.createFragment;\nconst a = createVNode(1, "div", null, [normalizeProps(createComponentVNode(2, Foo, Object.assign({}, p))), createTextVNode("text"), createFragment()], 4);')
+            expectNodeCanParse(code, 'commonjs')
+        })
+
+        it('Should not require helpers that are already declared in a script for CommonJS', function () {
+            assert.equal(transformWith('function createVNode() {}\nconst a = <div><Foo/></div>;', commonJS), 'var $inferno = require("inferno");\nvar createComponentVNode = $inferno.createComponentVNode;\nfunction createVNode() { }\nconst a = createVNode(1, "div", null, createComponentVNode(2, Foo), 2);')
+        })
+    })
+
     describe('import emission', function () {
         it('Should not import anything without JSX', function () {
             assert.equal(transformWith('const a = 1;'), 'const a = 1;')

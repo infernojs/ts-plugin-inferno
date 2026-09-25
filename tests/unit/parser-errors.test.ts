@@ -73,14 +73,6 @@ describe('Parser errors', function () {
 })
 
 describe('Plugin errors', function () {
-    it('Should reject the deprecated noNormalize prop', function () {
-        expectThrows(() => transform('<div noNormalize />'), 'Inferno JSX plugin:\nnoNormalize is deprecated use: $HasVNodeChildren, or if children shape is dynamic you can use: $ChildFlag={expression} see inferno package:inferno-vnode-flags (ChildFlags) for possible values')
-    })
-
-    it('Should reject the deprecated $NoNormalize prop', function () {
-        expectThrows(() => transform('<div $NoNormalize />'), 'Inferno JSX plugin:\n$NoNormalize is deprecated use: $HasVNodeChildren')
-    })
-
     it('Should reject the deprecated hasKeyedChildren prop', function () {
         expectThrows(() => transform('<div hasKeyedChildren />'), 'Inferno JSX plugin:\nhasKeyedChildren is deprecated use: $HasKeyedChildren')
     })

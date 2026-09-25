@@ -775,11 +775,6 @@ export default () => {
                         addProp(propsPropertyAssignments, outputNames, astProp, propName, svgAttributes[propName])
                     } else {
                         switch (propName) {
-                            case 'noNormalize':
-                            case '$NoNormalize':
-                                throw 'Inferno JSX plugin:\n' +
-                                propName +
-                                ' is deprecated use: $HasVNodeChildren, or if children shape is dynamic you can use: $ChildFlag={expression} see inferno package:inferno-vnode-flags (ChildFlags) for possible values'
                             case 'hasKeyedChildren':
                             case 'hasNonKeyedChildren':
                                 throw 'Inferno JSX plugin:\n' +

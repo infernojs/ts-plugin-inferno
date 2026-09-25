@@ -481,6 +481,12 @@ describe('Attributes', () => {
             assert.equal(transform('<div className />'), 'createVNode(1, "div", true);')
         })
 
+        // Inferno removed noNormalize long ago, so like babel-plugin-inferno the plugin treats it as any other prop
+        it('Should pass the removed noNormalize and $NoNormalize props through', () => {
+            assert.equal(transform('<div noNormalize />'), 'createVNode(1, "div", null, null, 1, { "noNormalize": true });')
+            assert.equal(transform('<div $NoNormalize />'), 'createVNode(1, "div", null, null, 1, { "$NoNormalize": true });')
+        })
+
         // Babel keeps them as leading comments of the props
         it('Should drop comments between attributes', () => {
             assert.equal(

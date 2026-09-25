@@ -1,6 +1,7 @@
 import {describe, it} from 'node:test'
 import * as assert from 'node:assert/strict'
 import {transform, run} from './helpers'
+import handleWhiteSpace from '../../src/utils/handleWhiteSpace'
 
 describe('Whitespace and text', () => {
     describe('multi-line text', () => {
@@ -133,5 +134,40 @@ describe('Whitespace and text', () => {
         it('Should only trim spaces and tabs, not literal non-breaking spaces', () => {
             assert.equal(transform('<div>\n   a \n</div>'), 'createVNode(1, "div", null, "\\u00A0a\\u00A0", 16);')
         })
+    })
+
+    // The table tests of swc-plugin-inferno src/jsx/tests.rs (jsx_text and jsx_text_edge_cases), for src/utils/handleWhiteSpace.ts
+    describe('handleWhiteSpace', () => {
+        const cases: [string, string, string][] = [
+            ['a single space', ' ', ' '],
+            ['words', 'Hello world', 'Hello world'],
+            ['whitespace at the edges of a single line', '  Hello world  ', '  Hello world  '],
+            ['an empty string', '', ''],
+            ['a single line of spaces', '   ', '   '],
+            ['a single line of tabs, which become spaces', '\t\t', '  '],
+            ['two lines', 'Hello\nworld', 'Hello world'],
+            ['two lines with whitespace at the edges', '  Hello  \n  world  ', '  Hello world  '],
+            ['an empty line', 'Hello\n\nworld', 'Hello world'],
+            ['a blank line', 'Hello\n  \n  world', 'Hello world'],
+            ['three lines with whitespace at the edges', '  Hello  \n  world  \n  test  ', '  Hello world test  '],
+            ['blank lines only', ' \n ', ''],
+            ['line breaks only', '\n\n\n', ''],
+            ['indentation only', '  \n  \n  ', ''],
+            ['a \\r line break', 'Hello\rworld', 'Hello world'],
+            ['a \\r\\n line break', 'Hello\r\nworld', 'Hello world'],
+            ['mixed spaces and tabs', '\t Hello \t\n\t world \t', '  Hello world  '],
+            ['\\r\\n and \\r line breaks with indentation', 'a\r\n  b\rc', 'a b c'],
+            ['a tab-only line', 'a\n\t\t\nb', 'a b'],
+            ['a tab inside non-ASCII text', 'ä\tö', 'ä ö'],
+            ['tabs around a line break in non-ASCII text', 'ä\t\n\tö\t', 'ä ö '],
+            ['the outer whitespace of the first and last lines', '  a  \n  b  ', '  a b  '],
+            ['a blank last line', '  a  \n  ', '  a']
+        ]
+
+        for (const [description, input, expected] of cases) {
+            it(`Should handle ${description}`, () => {
+                assert.equal(handleWhiteSpace(input), expected)
+            })
+        }
     })
 })
