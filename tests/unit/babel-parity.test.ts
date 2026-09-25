@@ -3,7 +3,6 @@
 // - babel/packages/babel-plugin-transform-react-jsx/test/fixtures/react/
 // - babel/packages/babel-parser/test/fixtures/jsx/
 // - babel/packages/babel-plugin-transform-react-constant-elements/test/fixtures/constant-elements/
-// Cases that fail because of known transformer bugs live in tests/known-bugs/babel-parity.test.ts
 
 import {describe, it} from 'node:test'
 import * as assert from 'node:assert/strict'
@@ -29,6 +28,10 @@ describe('Babel parity', () => {
 
         it('should-transform-known-hyphenated-tags', () => {
             assert.equal(transform('<font-face />;'), 'createVNode(32, "font-face");')
+        })
+
+        it('this-tag-name', () => {
+            assert.equal(transform('var div = <this.foo>test</this.foo>;'), 'var div = createComponentVNode(2, this.foo, { "children": "test" });')
         })
 
         it('assignment', () => {
@@ -243,9 +246,12 @@ describe('Babel parity', () => {
     })
 
     describe('current behaviour (questionable)', () => {
-        // Babel compiles <this /> to a this reference. <this.foo /> is in tests/known-bugs/babel-parity.test.ts
+        // Babel compiles <this /> to a this reference
         it('arrow-functions (compiles <this /> to an element)', () => {
-            assert.equal(transform('var foo = function () {\n  return () => <this />;\n};'), 'var foo = function () {\n    return () => createVNode(1, "this");\n};')
+            assert.equal(
+                transform('var foo = function () {\n  return () => <this />;\n};\n\nvar bar = function () {\n  return () => <this.foo />;\n};'),
+                'var foo = function () {\n    return () => createVNode(1, "this");\n};\nvar bar = function () {\n    return () => createComponentVNode(2, this.foo);\n};'
+            )
         })
     })
 
@@ -296,6 +302,15 @@ describe('Babel parity', () => {
         it('Should decode JSX text like tsc jsx: react (should-escape-xhtml-jsxtext)', () => {
             for (const input of ['<div>wôw</div>', '<div>w & w</div>', '<div>w &amp; w</div>', '<div>w &nbsp; w</div>', '<div>this should parse as nbsp: \u00A0 </div>', '<div>w &lt; w</div>', '<div>&#x1f4a9;</div>', '<div>&#1234;&#xABC;&#x10ffff;</div>', '<div>&#x1g4q9;</div>', '<div>&amp &ampa; &amp ; &xamp; &#0_0;</div>']) {
                 assert.equal(run(input).children, tscText(input), input)
+            }
+        })
+
+        // tsc passes member expression tags as references, whatever their casing
+        it('Should classify lowercase member expression tags like tsc jsx: react', () => {
+            for (const tag of ['this.foo', 'a.b', 'this.foo.bar.qux', 'form.testComponent']) {
+                const input = `<${tag} />`
+
+                assert.equal(transform(input).startsWith('createVNode('), tscReact(input).startsWith('React.createElement("'), tag)
             }
         })
     })

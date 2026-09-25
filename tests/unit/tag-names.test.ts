@@ -4,12 +4,36 @@ import {diagnosticMessages, es5, run, transform, transformWith} from './helpers'
 
 describe('Tag names', () => {
     describe('member expressions', () => {
+        it('Should compile this.foo as a component', () => {
+            assert.equal(transform('<this.foo />'), 'createComponentVNode(2, this.foo);')
+        })
+
+        it('Should compile a nested this member expression with children', () => {
+            assert.equal(transform('<this.foo.bar>x</this.foo.bar>'), 'createComponentVNode(2, this.foo.bar, { "children": "x" });')
+        })
+
+        it('Should compile a deep member expression', () => {
+            assert.equal(transform('<a.b.c.d />'), 'createComponentVNode(2, a.b.c.d);')
+        })
+
+        it('Should compile a lowercase member expression as a component', () => {
+            assert.equal(transform('<foo.bar />'), 'createComponentVNode(2, foo.bar);')
+        })
+
         it('Should compile a lowercase context provider as a component', () => {
             assert.equal(transform('<ctx.Provider value={v}>{a}</ctx.Provider>'), 'createComponentVNode(2, ctx.Provider, { "value": v, "children": a });')
         })
 
         it('Should compile a this member expression ending in an uppercase name as a component', () => {
             assert.equal(transform('<this.Foo />'), 'createComponentVNode(2, this.Foo);')
+        })
+
+        it('Should compile a member expression ending in this', () => {
+            assert.equal(transform('<a.this />'), 'createComponentVNode(2, a.this);')
+        })
+
+        it('Should compile a lowercase generic member expression as a component', () => {
+            assert.equal(transform('<icons.close<Props> size={1} />'), 'createComponentVNode(2, icons.close, { "size": 1 });')
         })
     })
 
@@ -148,13 +172,12 @@ describe('Tag names', () => {
             assert.ok(code.includes('return function () { return createComponentVNode(2, _this.Foo); };'), code)
         })
 
-        // Babel's case uses lowercase member tags, see tests/known-bugs/tag-names.test.ts
         it('Should rewrite this in opening and nested member tags', () => {
-            const code = transformWith('class A { m() { return () => <this.foo.bar.Qux><this.Foo></this.Foo></this.foo.bar.Qux>; } }', es5)
+            const code = transformWith('class A { m() { return () => <this.foo.bar.qux><this.foo></this.foo></this.foo.bar.qux>; } }', es5)
 
             assert.ok(code.includes('var _this = this;'), code)
-            assert.ok(code.includes('createComponentVNode(2, _this.foo.bar.Qux, {'), code)
-            assert.ok(code.includes('"children": createComponentVNode(2, _this.Foo)'), code)
+            assert.ok(code.includes('createComponentVNode(2, _this.foo.bar.qux, {'), code)
+            assert.ok(code.includes('"children": createComponentVNode(2, _this.foo)'), code)
         })
 
         it('Should rewrite this inside element children', () => {

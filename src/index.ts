@@ -536,19 +536,27 @@ export default () => {
             let vNodeType
             let flags
 
-            const text = type.getText()
-            const textSplitted = text.split('.')
-            const length = textSplitted.length
-            const finalText = textSplitted[length - 1]
-            if (isFragment(finalText)) {
-                vNodeType = TYPE_FRAGMENT
-            } else if (isComponent(finalText)) {
-                vNodeType = TYPE_COMPONENT
-                flags = VNodeFlags.ComponentUnknown
+            if (type.kind === SyntaxKind.PropertyAccessExpression) {
+                // A member expression like <a.b> or <this.foo> references a component whatever its casing
+                if (type.name.text === 'Fragment') {
+                    vNodeType = TYPE_FRAGMENT
+                } else {
+                    vNodeType = TYPE_COMPONENT
+                    flags = VNodeFlags.ComponentUnknown
+                }
             } else {
-                vNodeType = TYPE_ELEMENT
-                type = factory.createStringLiteral(text)
-                flags = vNodeTypes[text] || VNodeFlags.HtmlElement
+                const text = type.getText()
+
+                if (isFragment(text)) {
+                    vNodeType = TYPE_FRAGMENT
+                } else if (isComponent(text)) {
+                    vNodeType = TYPE_COMPONENT
+                    flags = VNodeFlags.ComponentUnknown
+                } else {
+                    vNodeType = TYPE_ELEMENT
+                    type = factory.createStringLiteral(text)
+                    flags = vNodeTypes[text] || VNodeFlags.HtmlElement
+                }
             }
 
             return {

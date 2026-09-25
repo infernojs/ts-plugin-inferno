@@ -12,9 +12,8 @@ describe('JSX positions', function () {
             assert.equal(transform('class C { static el = <i/>; }'), 'class C {\n    static el = createVNode(1, "i");\n}')
         })
 
-        // The babel test uses <this.subComponent />, see tests/known-bugs/positions.test.ts
         it('Should compile JSX in a class field arrow function', function () {
-            assert.equal(transform('class A { render = () => <this.SubComponent />; }'), 'class A {\n    render = () => createComponentVNode(2, this.SubComponent);\n}')
+            assert.equal(transform('class A { render = () => <this.subComponent />; }'), 'class A {\n    render = () => createComponentVNode(2, this.subComponent);\n}')
         })
 
         it('Should compile JSX in a default export', function () {

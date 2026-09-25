@@ -3,7 +3,6 @@
 // - oxc tasks/transform_conformance/tests/babel-plugin-transform-react-jsx/test/fixtures/
 // - oxc tasks/transform_conformance/tests/babel-plugin-transform-typescript/test/fixtures/jsx/
 // - oxc tasks/transform_conformance/tests/babel-plugin-transform-arrow-functions/test/fixtures/
-// Cases that fail because of known transformer bugs live in tests/known-bugs/oxc-parity.test.ts
 
 import {describe, it} from 'node:test'
 import * as assert from 'node:assert/strict'
@@ -155,12 +154,11 @@ describe('oxc parity', () => {
     })
 
     describe('transform-arrow-functions/with-this-member-expression', () => {
-        // The Babel case uses <this.foo.bar.qux />, that one is in tests/known-bugs/oxc-parity.test.ts
         it('Should rewrite this in member tags inside arrow functions', () => {
-            const code = transformWith('const f = function () {\n  return () => <this.foo.bar.Qux />;\n};', es5)
+            const code = transformWith('const f = function () {\n  return () => <this.foo.bar.qux />;\n};', es5)
 
             assert.ok(code.includes('var _this = this;'), code)
-            assert.ok(code.includes('return createComponentVNode(2, _this.foo.bar.Qux);'), code)
+            assert.ok(code.includes('return createComponentVNode(2, _this.foo.bar.qux);'), code)
         })
     })
 
