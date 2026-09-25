@@ -25,6 +25,8 @@ import isFragment from './utils/isFragment'
 import createAssignHelper from './utils/createAssignHelper'
 import getValue from './utils/getValue'
 import svgAttributes from './utils/svgAttributes'
+import attributeTransforms from './utils/attributeTransforms'
+import lowerCaseAttributes from './utils/lowerCaseAttributes'
 import isNodeNull from './utils/isNodeNull'
 import handleWhiteSpace from './utils/handleWhiteSpace'
 import vNodeTypes from './utils/vNodeTypes'
@@ -547,11 +549,18 @@ export default () => {
                         (propName === 'className' || propName === 'class')
                     ) {
                         className = getValue(initializer, visitor, factory)
-                    } else if (!isComponent && propName === 'htmlFor') {
+                    } else if (!isComponent && Object.prototype.hasOwnProperty.call(attributeTransforms, propName)) {
                         propsPropertyAssignments.push(
                             factory.createPropertyAssignment(
-                                factory.createStringLiteral('for'),
-                                getValue(initializer, visitor, factory)
+                                factory.createStringLiteral(attributeTransforms[propName]),
+                                initializer ? getValue(initializer, visitor, factory) : factory.createTrue()
+                            )
+                        )
+                    } else if (!isComponent && lowerCaseAttributes.has(propName)) {
+                        propsPropertyAssignments.push(
+                            factory.createPropertyAssignment(
+                                factory.createStringLiteral(propName.toLowerCase()),
+                                initializer ? getValue(initializer, visitor, factory) : factory.createTrue()
                             )
                         )
                     } else if (!isComponent && propName === 'onDoubleClick') {

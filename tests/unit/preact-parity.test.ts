@@ -1,6 +1,5 @@
 // Cases mirrored from babel-plugin-inferno's tests/preact-parity.test.js, which uses shapes from Preact's runtime tests
 // (preact test/browser, compat/test/browser); Preact has no compile-output tests.
-// Cases that fail because of known transformer bugs live in tests/known-bugs/preact-parity.test.ts
 
 import {describe, it} from 'node:test'
 import * as assert from 'node:assert/strict'
@@ -86,6 +85,14 @@ describe('Preact parity', () => {
 
         it('Should pass a false table border', () => {
             assert.equal(transform('<table border={false} />'), 'createVNode(1, "table", null, null, 1, { "border": false });')
+        })
+
+        it('Should lowercase rowSpan and colSpan', () => {
+            assert.equal(transform('<td rowSpan={2} colSpan={2} />'), 'createVNode(1, "td", null, null, 1, { "rowspan": 2, "colspan": 2 });')
+        })
+
+        it('Should lowercase null maxLength and minLength', () => {
+            assert.equal(transform('<input maxLength={null} minLength={null} />'), 'createVNode(64, "input", null, null, 1, { "maxlength": null, "minlength": null });')
         })
     })
 

@@ -78,7 +78,7 @@ describe('TSX with the TypeScript compiler', function () {
 
         // transpileModule compiles each file on its own (isolatedModules), so const enums are emitted like enums
         it('Should compile JSX next to a const enum', function () {
-            assert.equal(transform('const enum K { A = 1 }\nexport const a = <div tabIndex={K.A}/>;'), 'var K;\n(function (K) {\n    K[K["A"] = 1] = "A";\n})(K || (K = {}));\nexport const a = createVNode(1, "div", null, null, 1, { "tabIndex": K.A });')
+            assert.equal(transform('const enum K { A = 1 }\nexport const a = <div tabIndex={K.A}/>;'), 'var K;\n(function (K) {\n    K[K["A"] = 1] = "A";\n})(K || (K = {}));\nexport const a = createVNode(1, "div", null, null, 1, { "tabindex": K.A });')
         })
 
         it('Should compile JSX inside a namespace', function () {

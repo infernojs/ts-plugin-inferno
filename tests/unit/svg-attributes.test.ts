@@ -4,7 +4,8 @@
 // - HTML spec: https://html.spec.whatwg.org/multipage/parsing.html#adjust-svg-attributes
 //   This table holds every mixed-case SVG attribute name; all other SVG attributes are lowercase, hyphenated or
 //   namespaced. React-style camelCase names of hyphenated and namespaced attributes are mapped by
-//   src/utils/svgAttributes.ts.
+//   src/utils/svgAttributes.ts and src/utils/attributeTransforms.ts, those of lowercase attributes by
+//   src/utils/lowerCaseAttributes.ts.
 import {describe, it} from 'node:test'
 import * as assert from 'node:assert/strict'
 import {transform} from './helpers'
@@ -54,8 +55,15 @@ const mixedCaseAttributes = [
     'targetY', 'textLength', 'viewBox', 'viewTarget', 'xChannelSelector', 'yChannelSelector', 'zoomAndPan'
 ]
 
-// Mapping the camelCase names of these is not implemented yet, see tests/known-bugs/svg-attributes.test.ts
-const unmappedAttributes = ['font-width', 'mask-type', 'text-anchor', 'text-overflow', 'transform-origin', 'white-space']
+// React-style camelCase names of lowercase attributes
+const lowercaseAliases = {
+    autoFocus: 'autofocus',
+    crossOrigin: 'crossorigin',
+    fetchPriority: 'fetchpriority',
+    hrefLang: 'hreflang',
+    referrerPolicy: 'referrerpolicy',
+    tabIndex: 'tabindex'
+}
 
 function camelCase(name: string) {
     return name.replace(/[-:]([a-z])/g, (_match, letter) => letter.toUpperCase())
@@ -105,9 +113,35 @@ describe('SVG attributes (MDN reference)', () => {
     })
 
     describe('camelCase names of hyphenated and namespaced attributes', () => {
-        for (const name of mdnAttributes.filter(name => /[-:]/.test(name) && !unmappedAttributes.includes(name))) {
+        for (const name of mdnAttributes.filter(name => /[-:]/.test(name))) {
             it(`Should map ${camelCase(name)} to ${name}`, () => {
                 assert.equal(transform(`<rect ${camelCase(name)}="v" />`), rectProps(name))
+            })
+        }
+    })
+
+    describe('camelCase names of presentation attributes on their elements', () => {
+        it('Should map maskType to mask-type on mask', () => {
+            assert.equal(transform('<mask maskType="alpha" />'), 'createVNode(32, "mask", null, null, 1, { "mask-type": "alpha" });')
+        })
+
+        it('Should map textOverflow to text-overflow on text', () => {
+            assert.equal(transform('<text textOverflow="ellipsis" />'), 'createVNode(32, "text", null, null, 1, { "text-overflow": "ellipsis" });')
+        })
+
+        it('Should map whiteSpace to white-space on text', () => {
+            assert.equal(transform('<text whiteSpace="nowrap" />'), 'createVNode(32, "text", null, null, 1, { "white-space": "nowrap" });')
+        })
+
+        it('Should map fontWidth to font-width on text', () => {
+            assert.equal(transform('<text fontWidth="condensed" />'), 'createVNode(32, "text", null, null, 1, { "font-width": "condensed" });')
+        })
+    })
+
+    describe('camelCase names of lowercase attributes', () => {
+        for (const name of Object.keys(lowercaseAliases)) {
+            it(`Should map ${name} to ${lowercaseAliases[name]}`, () => {
+                assert.equal(transform(`<rect ${name}="v" />`), rectProps(lowercaseAliases[name]))
             })
         }
     })

@@ -195,6 +195,31 @@ describe('Attributes', () => {
     })
 
     describe('mapped attributes', () => {
+        it('Should map httpEquiv and charSet', () => {
+            assert.equal(
+                transform('<meta httpEquiv="refresh" charSet="utf-8" />'),
+                'createVNode(1, "meta", null, null, 1, { "http-equiv": "refresh", "charset": "utf-8" });'
+            )
+        })
+
+        it('Should map textAnchor on svg text', () => {
+            assert.equal(
+                transform('<svg><text textAnchor="middle" /></svg>'),
+                'createVNode(32, "svg", null, createVNode(32, "text", null, null, 1, { "text-anchor": "middle" }), 2);'
+            )
+        })
+
+        it('Should map transformOrigin', () => {
+            assert.equal(transform('<div transformOrigin="0 0" />'), 'createVNode(1, "div", null, null, 1, { "transform-origin": "0 0" });')
+        })
+
+        it('Should lowercase tabIndex, readOnly and maxLength', () => {
+            assert.equal(
+                transform('<div tabIndex="1" readOnly maxLength={3} />'),
+                'createVNode(1, "div", null, null, 1, { "tabindex": "1", "readonly": true, "maxlength": 3 });'
+            )
+        })
+
         it('Should map onDoubleClick and keep ondblclick', () => {
             assert.equal(transform('<div onDoubleClick={f} ondblclick={g} />'), 'createVNode(1, "div", null, null, 1, { "onDblClick": f, "ondblclick": g });')
         })

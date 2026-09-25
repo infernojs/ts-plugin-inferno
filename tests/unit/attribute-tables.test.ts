@@ -7,9 +7,6 @@ import {transform} from './helpers'
 import svgAttributes from '../../src/utils/svgAttributes'
 import {attributeTransforms, lowerCaseAttributes} from './attributeTables'
 
-// Mapping these on elements is not implemented yet, see tests/known-bugs/attribute-tables.test.ts
-const unmappedAttributeTransforms = ['acceptCharset', 'transformOrigin', 'textAnchor', 'httpEquiv']
-
 function elementProps(flags: number, tag: string, name: string) {
     return `createVNode(${flags}, "${tag}", null, null, 1, { "${name}": "v" });`
 }
@@ -20,8 +17,11 @@ function componentProps(name: string) {
 
 describe('Attribute mapping tables', () => {
     describe('lowerCaseAttributes', () => {
-        // Lowercasing on elements: tests/known-bugs/attribute-tables.test.ts
         for (const name of lowerCaseAttributes) {
+            it(`Should lowercase ${name} on elements`, () => {
+                assert.equal(transform(`<div ${name}="v" />`), elementProps(1, 'div', name.toLowerCase()))
+            })
+
             it(`Should keep ${name} on components`, () => {
                 assert.equal(transform(`<Foo ${name}="v" />`), componentProps(name))
             })
@@ -42,11 +42,9 @@ describe('Attribute mapping tables', () => {
 
     describe('attributeTransforms', () => {
         for (const name of Object.keys(attributeTransforms)) {
-            if (!unmappedAttributeTransforms.includes(name)) {
-                it(`Should map ${name} to ${attributeTransforms[name]} on elements`, () => {
-                    assert.equal(transform(`<div ${name}="v" />`), elementProps(1, 'div', attributeTransforms[name]))
-                })
-            }
+            it(`Should map ${name} to ${attributeTransforms[name]} on elements`, () => {
+                assert.equal(transform(`<div ${name}="v" />`), elementProps(1, 'div', attributeTransforms[name]))
+            })
 
             it(`Should keep ${name} on components`, () => {
                 assert.equal(transform(`<Foo ${name}="v" />`), componentProps(name))
