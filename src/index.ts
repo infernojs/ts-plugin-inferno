@@ -2,6 +2,7 @@ import {
     BinaryExpression,
     Expression,
     getLineAndCharacterOfPosition,
+    getSourceMapRange,
     idText,
     ImportSpecifier,
     JsxAttributeLike,
@@ -15,6 +16,7 @@ import {
     NodeArray,
     ParenthesizedExpression,
     ScriptTarget,
+    setSourceMapRange,
     SourceFile,
     SyntaxKind,
     isSpreadElement,
@@ -228,7 +230,7 @@ export default () => {
         function visitor(node: Node): VisitResult<Node> {
             switch (node.kind) {
                 case SyntaxKind.JsxFragment:
-                    return createFragment((<JsxFragment>node).children)
+                    return setSourceMapRange(createFragment((<JsxFragment>node).children), node)
 
                 case SyntaxKind.JsxElement:
                     return createVNode(
@@ -245,7 +247,7 @@ export default () => {
 
                     if (text !== '') {
                         // Whitespace is collapsed first, so encoded characters like &#10; are kept like in TypeScript's JSX emit
-                        return factory.createStringLiteral(decodeEntities(text))
+                        return setSourceMapRange(factory.createStringLiteral(decodeEntities(text)), node)
                     }
                     break
 
@@ -269,11 +271,7 @@ export default () => {
                 const aChild = vChildren.elements[j];
 
                 if (aChild.kind === SyntaxKind.StringLiteral) {
-                    vChildren.elements[j] = factory.createCallExpression(
-                        getImportSpecifier('createTextVNode'),
-                        [],
-                        [aChild]
-                    )
+                    vChildren.elements[j] = createTextVNodeCall(aChild)
                 }
             }
 
@@ -287,12 +285,16 @@ export default () => {
                 return addCreateTextVNodeCalls(vChildren)
             }
             if (vChildren.kind === SyntaxKind.StringLiteral) {
-                return factory.createCallExpression(
-                    getImportSpecifier('createTextVNode'),
-                    [],
-                    [vChildren]
-                )
+                return createTextVNodeCall(vChildren)
             }
+        }
+
+        // createTextVNode("text") maps to the JSX text in source maps, like the string literal it wraps
+        function createTextVNodeCall(text: Expression) {
+            return setSourceMapRange(
+                factory.createCallExpression(getImportSpecifier('createTextVNode'), [], [text]),
+                getSourceMapRange(text)
+            )
         }
 
         function createFragmentVNodeArgs(children, childFlags, key?) {
@@ -583,13 +585,15 @@ export default () => {
                 context['createFragment'] = true
             }
 
+            // The generated calls map to the JSX in source maps, their arguments are synthesized
+            setSourceMapRange(createVNodeCall, node)
+
             // NormalizeProps will normalizeChildren too
             if (vProps.needsNormalization) {
                 context['normalizeProps'] = true
-                createVNodeCall = factory.createCallExpression(
-                    getImportSpecifier('normalizeProps'),
-                    [],
-                    [createVNodeCall]
+                createVNodeCall = setSourceMapRange(
+                    factory.createCallExpression(getImportSpecifier('normalizeProps'), [], [createVNodeCall]),
+                    node
                 )
             }
 
