@@ -4,7 +4,6 @@
 // - jstransform: react d2fe87892d^:vendor/fbtransform/transforms/__tests__/react-test.js
 // - compiler fixtures: react compiler/packages/babel-plugin-react-compiler/src/__tests__/fixtures/compiler/
 // - runtime tests: react packages/react/src/__tests__/ and packages/react-dom/src/__tests__/
-// Cases that fail because of known transformer bugs live in tests/known-bugs/react-parity.test.ts
 
 import {describe, it} from 'node:test'
 import * as assert from 'node:assert/strict'
@@ -52,6 +51,12 @@ describe('React parity', () => {
 
         it('Should compile a spread followed by a prop', () => {
             assert.equal(transform('<Component {...props} sound="moo" />'), 'normalizeProps(createComponentVNode(2, Component, Object.assign({}, props, { "sound": "moo" })));')
+        })
+
+        it('Should drop a children prop that is overridden by a spread and JSX children', () => {
+            const vNode = run('<Component children={1} {...x}>2</Component>', {Component: 'Component', x: {children: 'spread'}})
+
+            assert.equal(vNode.props.children, '2')
         })
 
         it('Should compile a mixed static element and array child', () => {

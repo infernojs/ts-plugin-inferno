@@ -16,14 +16,12 @@ describe('Spread attributes', () => {
             assert.equal(transform('<Component y={2} { ... x } z />'), 'normalizeProps(createComponentVNode(2, Component, Object.assign({}, { "y": 2 }, x, { "z": true })));')
         })
 
-        // Babel's case has JSX children, see tests/known-bugs/spread.test.ts
         it('Should keep the same spread twice', () => {
-            assert.equal(transform('<Component x={1} y="2" {...z} {...z} />'), 'normalizeProps(createComponentVNode(2, Component, Object.assign({}, { "x": 1, "y": "2" }, z, z)));')
+            assert.equal(transform('<Component x={1} y="2" {...z} {...z}><Child /></Component>'), 'normalizeProps(createComponentVNode(2, Component, Object.assign({}, { "x": 1, "y": "2" }, z, z, { "children": createComponentVNode(2, Child) })));')
         })
 
-        // Babel's case has JSX children, see tests/known-bugs/spread.test.ts
         it('Should keep a sequence expression spread', () => {
-            assert.equal(transform('<Component x="1" {...(z = { y: 2 }, z)} z={3} />'), 'normalizeProps(createComponentVNode(2, Component, Object.assign({}, { "x": "1" }, (z = { y: 2 }, z), { "z": 3 })));')
+            assert.equal(transform('<Component x="1" {...(z = { y: 2 }, z)} z={3}>Text</Component>'), 'normalizeProps(createComponentVNode(2, Component, Object.assign({}, { "x": "1" }, (z = { y: 2 }, z), { "z": 3, "children": "Text" })));')
         })
 
         it('Should keep a null spread', () => {
@@ -94,6 +92,14 @@ describe('Spread attributes', () => {
 
         it('Should keep a spread of a conditional object', () => {
             assert.equal(transform('<div {...(c ? {class: "x"} : {})} />'), 'normalizeProps(createVNode(1, "div", null, null, 1, Object.assign({}, (c ? { class: "x" } : {}))));')
+        })
+
+        it('Should prefer JSX children over children from a spread', () => {
+            assert.equal(run('<Foo {...p}>b</Foo>', {Foo: 'Foo', p: {children: 'spread'}}).props.children, 'b')
+        })
+
+        it('Should put JSX children after the spread on a generic component', () => {
+            assert.equal(transform('<Foo<T> {...p}><a/><b/></Foo>'), 'normalizeProps(createComponentVNode(2, Foo, Object.assign({}, p, { "children": [createVNode(1, "a"), createVNode(1, "b")] })));')
         })
     })
 

@@ -395,7 +395,6 @@ export default () => {
 
             let childFlags = ChildFlags.HasInvalidChildren
             let flags = vType.flags
-            let props: any = vProps.props[0] || factory.createObjectLiteralExpression()
             let overriddenChildren = null
 
             if (vProps.hasReCreateFlag) {
@@ -414,11 +413,15 @@ export default () => {
                         )
                     ) {
                         // JSX children replace the children prop
-                        props.properties.push(
-                            createPropertyAssignment('children', withOverridden(removeChildrenProp(vProps), downlevelSpreadChildren(vChildren)))
-                        )
+                        const childrenProp = createPropertyAssignment('children', withOverridden(removeChildrenProp(vProps), downlevelSpreadChildren(vChildren)))
+                        const lastProps = vProps.props[vProps.props.length - 1]
 
-                        vProps.props[0] = props
+                        // They are merged last, so they win over a children key of a spread like in React
+                        if (lastProps && !vProps.spreads.includes(lastProps)) {
+                            lastProps.properties.push(childrenProp)
+                        } else {
+                            vProps.props.push(factory.createObjectLiteralExpression([childrenProp]))
+                        }
                     }
                     vChildren = null
                 }
@@ -647,6 +650,7 @@ export default () => {
             let childFlags = null
             let contentEditable = false
             let assignArgs = []
+            let spreads = []
             let propsPropertyAssignments = []
             let objectLiteralExpressionAdded = false
             // Attribute names seen so far, and the attribute name that set each prop, to reject duplicates
@@ -688,6 +692,7 @@ export default () => {
                     }
 
                     assignArgs.push(astProp.expression);
+                    spreads.push(astProp.expression)
                 } else {
                     initializer = astProp.initializer
                     let propName = getPropertyName(astProp);
@@ -797,6 +802,7 @@ export default () => {
 
             return {
                 props: assignArgs,
+                spreads: spreads,
                 key: key == null ? null : key,
                 ref: ref == null ? null : ref,
                 hasKeyedChildren: hasKeyedChildren,
