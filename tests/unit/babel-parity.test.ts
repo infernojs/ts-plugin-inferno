@@ -7,7 +7,7 @@
 
 import {describe, it} from 'node:test'
 import * as assert from 'node:assert/strict'
-import {expectValidJS, run, transform, tscReact, tscText} from './helpers'
+import {expectThrows, expectValidJS, run, transform, tscReact, tscText} from './helpers'
 
 describe('Babel parity', () => {
     describe('transform-react-jsx fixtures', () => {
@@ -35,6 +35,10 @@ describe('Babel parity', () => {
             assert.equal(transform('var div = <Component {...props} foo="bar" />'), 'var div = normalizeProps(createComponentVNode(2, Component, Object.assign({}, props, { "foo": "bar" })));')
         })
 
+        it('should-allow-elements-as-attributes', () => {
+            assert.equal(transform('<div attr=<div /> />'), 'createVNode(1, "div", null, null, 1, { "attr": createVNode(1, "div") });')
+        })
+
         it('should-handle-attributed-elements', () => {
             assert.equal(transform('var HelloMessage = React.createClass({\n  render: function() {\n    return <div>Hello {this.props.name}</div>;\n  }\n});\n\nReact.render(<HelloMessage name={\n  <span>\n    Sebastian\n  </span>\n} />, mountNode);'), 'var HelloMessage = React.createClass({\n    render: function () {\n        return createVNode(1, "div", null, [createTextVNode("Hello "), this.props.name], 0);\n    }\n});\nReact.render(createComponentVNode(2, HelloMessage, { "name": createVNode(1, "span", null, "Sebastian", 16) }), mountNode);')
         })
@@ -53,6 +57,10 @@ describe('Babel parity', () => {
 
         it('duplicate-props (spread variants)', () => {
             assert.equal(transform('<p {...{prop, prop}}></p>;\n<p prop {...{prop}}></p>;\n<p {...{prop}} prop></p>;'), 'normalizeProps(createVNode(1, "p", null, null, 1, Object.assign({}, { prop, prop })));\nnormalizeProps(createVNode(1, "p", null, null, 1, Object.assign({}, { "prop": true }, { prop })));\nnormalizeProps(createVNode(1, "p", null, null, 1, Object.assign({}, { prop }, { "prop": true })));')
+        })
+
+        it('duplicate-props (repeated attribute)', () => {
+            expectThrows(() => transform('<p prop prop></p>;'), 'Multiple prop props are not supported. Remove the duplicate prop prop.')
         })
 
         it('flattens-spread', () => {

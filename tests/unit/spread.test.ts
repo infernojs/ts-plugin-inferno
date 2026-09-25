@@ -68,6 +68,10 @@ describe('Spread attributes', () => {
             assert.equal(transform('<Foo {...p} ref={r}/>'), 'normalizeProps(createComponentVNode(2, Foo, Object.assign({}, p), null, r));')
         })
 
+        it('Should keep a children prop next to a spread on an element', () => {
+            assert.equal(transform('<div {...p} children="x"/>'), 'normalizeProps(createVNode(1, "div", null, "x", 16, Object.assign({}, p)));')
+        })
+
         it('Should keep dynamic children next to a spread', () => {
             assert.equal(transform('<div {...p}>{a}{b}</div>'), 'normalizeProps(createVNode(1, "div", null, [a, b], 0, Object.assign({}, p)));')
         })
@@ -78,6 +82,10 @@ describe('Spread attributes', () => {
 
         it('Should let a later spread override a component children prop', () => {
             assert.equal(run('<Foo children={a} {...p} />', {Foo: 'Foo', a: 'prop', p: {children: 'spread'}}).props.children, 'spread')
+        })
+
+        it('Should prefer JSX children over a children prop next to a spread', () => {
+            assert.equal(run('<Foo {...p} children={a}>b</Foo>', {Foo: 'Foo', p: {}, a: 'prop'}).props.children, 'b')
         })
 
         it('Should keep an attribute after a spread', () => {

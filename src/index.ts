@@ -1,5 +1,7 @@
 import {
+    BinaryExpression,
     Expression,
+    getLineAndCharacterOfPosition,
     ImportSpecifier,
     JsxAttributeLike,
     JsxChild,
@@ -10,6 +12,7 @@ import {
     JsxSelfClosingElement,
     Node,
     NodeArray,
+    ParenthesizedExpression,
     SourceFile,
     SyntaxKind,
     TransformationContext,
@@ -24,6 +27,7 @@ import isComponent from './utils/isComponent'
 import isFragment from './utils/isFragment'
 import createAssignHelper from './utils/createAssignHelper'
 import getValue from './utils/getValue'
+import mayHaveSideEffects from './utils/mayHaveSideEffects'
 import svgAttributes from './utils/svgAttributes'
 import attributeTransforms from './utils/attributeTransforms'
 import lowerCaseAttributes from './utils/lowerCaseAttributes'
@@ -55,14 +59,22 @@ function getPropertyName(astProp: any) {
     return `${astProp.name.namespace.text}:${astProp.name.name.text}`
 }
 
+// Own properties only, so that names like constructor or __proto__ do not match Object.prototype
+function hasOwn(object: object, key: string) {
+    return Object.prototype.hasOwnProperty.call(object, key)
+}
+
 export default () => {
     return (context: TransformationContext): Transformer<SourceFile> => {
         const {factory} = context;
+        let currentSourceFile: SourceFile
 
         return ((sourceFile: SourceFile) => {
             if (sourceFile.isDeclarationFile) {
                 return sourceFile
             }
+
+            currentSourceFile = sourceFile
 
             const importSpecifiers = new Map<string, ImportSpecifier>();
 
@@ -84,6 +96,65 @@ export default () => {
 
             return updateSourceFile(newSourceFile, context)
         })
+
+        // Points the error at the node like tsc diagnostics do, e.g. "file.tsx(3,5): message"
+        function createError(node: Node, message: string) {
+            if (node.pos < 0) {
+                return new Error(message)
+            }
+            const {line, character} = getLineAndCharacterOfPosition(currentSourceFile, node.getStart(currentSourceFile))
+
+            return new Error(`${currentSourceFile.fileName}(${line + 1},${character + 1}): ${message}`)
+        }
+
+        function createPropertyAssignment(name: string, value: Expression) {
+            return factory.createPropertyAssignment(
+                // A non-computed __proto__ key would set the prototype of the props object instead of creating a prop
+                name === '__proto__' ? factory.createComputedPropertyName(factory.createStringLiteral(name)) : factory.createStringLiteral(name),
+                value
+            )
+        }
+
+        // Removes the children prop added by getVNodeProps from the props objects and returns its value
+        function removeChildrenProp(vProps) {
+            if (vProps.childrenProp) {
+                for (let i = 0; i < vProps.props.length; i++) {
+                    const props = vProps.props[i]
+                    const index = props.kind === SyntaxKind.ObjectLiteralExpression ? props.properties.indexOf(vProps.childrenProp) : -1
+
+                    if (index !== -1) {
+                        props.properties.splice(index, 1)
+
+                        // Drop an object left empty after a spread, the first one is kept as the Object.assign target
+                        if (i > 0 && props.properties.length === 0) {
+                            vProps.props.splice(i, 1)
+                        }
+                        return vProps.childrenProp.initializer
+                    }
+                }
+            }
+            return null
+        }
+
+        // A children prop replaced by JSX children is still evaluated before them, like in React's JSX transform
+        function withOverridden(overridden: Expression | null, value: Expression) {
+            const expressions = []
+            const stack = overridden ? [overridden] : []
+
+            while (stack.length) {
+                const node = stack.shift()
+
+                if (node.kind === SyntaxKind.ParenthesizedExpression) {
+                    stack.unshift((node as ParenthesizedExpression).expression)
+                } else if (node.kind === SyntaxKind.BinaryExpression && (node as BinaryExpression).operatorToken.kind === SyntaxKind.CommaToken) {
+                    stack.unshift((node as BinaryExpression).left, (node as BinaryExpression).right)
+                } else if (mayHaveSideEffects(node)) {
+                    expressions.push(node)
+                }
+            }
+
+            return expressions.concat(value).reduce((left, right) => factory.createComma(left, right))
+        }
 
         function getImportSpecifier(name: 'createFragment' | 'createVNode' | 'createComponentVNode' | 'createTextVNode' | 'normalizeProps'): Expression {
             return context['infernoImportSpecifiers'].get(name).name;
@@ -265,8 +336,7 @@ export default () => {
             let childFlags = ChildFlags.HasInvalidChildren
             let flags = vType.flags
             let props: any = vProps.props[0] || factory.createObjectLiteralExpression()
-            let childIndex = -1
-            let i = 0
+            let overriddenChildren = null
 
             if (vProps.hasReCreateFlag) {
                 flags = flags | VNodeFlags.ReCreate
@@ -283,21 +353,9 @@ export default () => {
                             vChildren.elements.length === 0
                         )
                     ) {
-                        // Remove children from props, if it exists
-                        for (i = 0; i < props.properties.length; i++) {
-                            if (
-                                props.properties[i] &&
-                                props.properties[i].name.text === 'children'
-                            ) {
-                                childIndex = i
-                                break
-                            }
-                        }
-                        if (childIndex !== -1) {
-                            props.properties.splice(childIndex, 1) // Remove prop children
-                        }
+                        // JSX children replace the children prop
                         props.properties.push(
-                            factory.createPropertyAssignment(factory.createStringLiteral('children'), vChildren)
+                            createPropertyAssignment('children', withOverridden(removeChildrenProp(vProps), vChildren))
                         )
 
                         vProps.props[0] = props
@@ -305,12 +363,13 @@ export default () => {
                     vChildren = null
                 }
             } else {
-                if (
-                    ((vChildren &&
-                            vChildren.kind === SyntaxKind.ArrayLiteralExpression) ||
-                        !vChildren) &&
-                    vProps.propChildren
-                ) {
+                // The children prop is used as children only when there are no JSX children to replace it
+                const usesPropChildren = vProps.propChildren && (
+                    !vChildren ||
+                    (vChildren.kind === SyntaxKind.ArrayLiteralExpression && vChildren.elements.length === 0)
+                )
+
+                if (usesPropChildren) {
                     if (vProps.propChildren.kind === SyntaxKind.StringLiteral) {
                         text = handleWhiteSpace(vProps.propChildren.text)
                         if (text !== '') {
@@ -373,25 +432,20 @@ export default () => {
                     }
                 }
 
-                // Remove children from props, if it exists
-                childIndex = -1
+                // Elements get children as an argument, never as a prop
+                const childrenPropValue = removeChildrenProp(vProps)
 
-                for (i = 0; i < props.properties.length; i++) {
-                    if (
-                        props.properties[i].name &&
-                        props.properties[i].name.text === 'children'
-                    ) {
-                        childIndex = i
-                        break
-                    }
-                }
-                if (childIndex !== -1) {
-                    props.properties.splice(childIndex, 1) // Remove prop children
+                if (!usesPropChildren) {
+                    overriddenChildren = childrenPropValue
                 }
             }
 
             if (vChildren && childrenResults.foundText) {
                 vChildren = transformTextNodes(vChildren)
+            }
+
+            if (overriddenChildren) {
+                vChildren = withOverridden(overriddenChildren, vChildren)
             }
 
             let willNormalizeChildren =
@@ -507,7 +561,9 @@ export default () => {
         function getVNodeProps(astProps: NodeArray<JsxAttributeLike>, isComponent) {
             let key = null
             let ref = null
+            let hooks = []
             let className = null
+            let hasClassName = false
             let hasTextChildren = false
             let hasKeyedChildren = false
             let hasNonKeyedChildren = false
@@ -515,11 +571,31 @@ export default () => {
             let needsNormalization = false
             let hasReCreateFlag = false
             let propChildren = null
+            let childrenProp = null
             let childFlags = null
             let contentEditable = false
             let assignArgs = []
             let propsPropertyAssignments = []
             let objectLiteralExpressionAdded = false
+            // Attribute names seen so far, and the attribute name that set each prop, to reject duplicates
+            const seenProps = new Set<string>()
+            const outputProps = new Map<string, string>()
+
+            // Adds a prop and rejects attributes that end up as the same prop, e.g. htmlFor and for
+            function addProp(astProp, attributeName: string, outputName: string) {
+                if (outputProps.has(outputName)) {
+                    throw createError(
+                        astProp,
+                        outputProps.get(outputName) + ' and ' + attributeName + ' both set the ' + outputName + ' prop. Remove one of them.'
+                    )
+                }
+                outputProps.set(outputName, attributeName)
+
+                const prop = createPropertyAssignment(outputName, getValue(astProp.initializer, visitor, factory))
+
+                propsPropertyAssignments.push(prop)
+                return prop
+            }
 
             for (let i = 0; i < astProps.length; i++) {
                 let astProp = astProps[i]
@@ -544,51 +620,36 @@ export default () => {
                     initializer = astProp.initializer
                     let propName = getPropertyName(astProp);
 
+                    if (seenProps.has(propName)) {
+                        throw createError(astProp, 'Multiple ' + propName + ' props are not supported. Remove the duplicate ' + propName + ' prop.')
+                    }
+                    seenProps.add(propName)
+
                     if (
                         !isComponent &&
                         (propName === 'className' || propName === 'class')
                     ) {
-                        className = getValue(initializer, visitor, factory)
-                    } else if (!isComponent && Object.prototype.hasOwnProperty.call(attributeTransforms, propName)) {
-                        propsPropertyAssignments.push(
-                            factory.createPropertyAssignment(
-                                factory.createStringLiteral(attributeTransforms[propName]),
-                                initializer ? getValue(initializer, visitor, factory) : factory.createTrue()
-                            )
-                        )
-                    } else if (!isComponent && lowerCaseAttributes.has(propName)) {
-                        propsPropertyAssignments.push(
-                            factory.createPropertyAssignment(
-                                factory.createStringLiteral(propName.toLowerCase()),
-                                initializer ? getValue(initializer, visitor, factory) : factory.createTrue()
-                            )
-                        )
-                    } else if (!isComponent && propName === 'onDoubleClick') {
-                        propsPropertyAssignments.push(
-                            factory.createPropertyAssignment(
-                                factory.createStringLiteral('onDblClick'),
-                                getValue(initializer, visitor, factory)
-                            )
-                        )
-                    } else if (propName.substring(0, 11) === 'onComponent' && isComponent) {
-                        if (!ref) {
-                            ref = factory.createObjectLiteralExpression([])
+                        if (hasClassName) {
+                            throw createError(astProp, 'className and class both set the class name. Remove one of them.')
                         }
-
-                        ref.properties.push(
+                        hasClassName = true
+                        className = getValue(initializer, visitor, factory)
+                    } else if (!isComponent && hasOwn(attributeTransforms, propName)) {
+                        addProp(astProp, propName, attributeTransforms[propName])
+                    } else if (!isComponent && lowerCaseAttributes.has(propName)) {
+                        addProp(astProp, propName, propName.toLowerCase())
+                    } else if (!isComponent && propName === 'onDoubleClick') {
+                        addProp(astProp, propName, 'onDblClick')
+                    } else if (propName.substring(0, 11) === 'onComponent' && isComponent) {
+                        hooks.push(
                             factory.createPropertyAssignment(
                                 factory.createStringLiteral(propName),
                                 getValue(initializer, visitor, factory)
                             )
                         )
-                    } else if (!isComponent && propName in svgAttributes) {
+                    } else if (!isComponent && hasOwn(svgAttributes, propName)) {
                         // React compatibility for SVG Attributes
-                        propsPropertyAssignments.push(
-                            factory.createPropertyAssignment(
-                                factory.createStringLiteral(svgAttributes[propName]),
-                                initializer ? getValue(initializer, visitor, factory) : factory.createTrue()
-                            )
-                        )
+                        addProp(astProp, propName, svgAttributes[propName])
                     } else {
                         switch (propName) {
                             case 'noNormalize':
@@ -633,20 +694,15 @@ export default () => {
                                 hasReCreateFlag = true
                                 break
                             default:
-                                if (propName === 'children') {
-                                    propChildren = astProp.initializer
-                                }
                                 if (propName.toLowerCase() === 'contenteditable') {
                                     contentEditable = true
                                 }
-                                propsPropertyAssignments.push(
-                                    factory.createPropertyAssignment(
-                                        factory.createStringLiteral(propName),
-                                        initializer
-                                            ? getValue(initializer, visitor, factory)
-                                            : factory.createTrue()
-                                    )
-                                )
+                                if (propName === 'children') {
+                                    propChildren = astProp.initializer
+                                    childrenProp = addProp(astProp, propName, propName)
+                                } else {
+                                    addProp(astProp, propName, propName)
+                                }
                         }
                     }
                 }
@@ -656,6 +712,14 @@ export default () => {
                 assignArgs.push(factory.createObjectLiteralExpression(propsPropertyAssignments))
             }
 
+            // Component hooks are passed in the ref argument; a ref attribute is merged in first so that the hook
+            // attributes win regardless of their position
+            if (hooks.length) {
+                const hooksObject = factory.createObjectLiteralExpression(hooks)
+
+                ref = ref ? createAssignHelper(context, [factory.createObjectLiteralExpression(), ref, hooksObject]) : hooksObject
+            }
+
             return {
                 props: assignArgs,
                 key: key == null ? null : key,
@@ -663,6 +727,7 @@ export default () => {
                 hasKeyedChildren: hasKeyedChildren,
                 hasNonKeyedChildren: hasNonKeyedChildren,
                 propChildren: propChildren,
+                childrenProp: childrenProp,
                 childrenKnown: childrenKnown,
                 className: className == null ? null : className,
                 childFlags: childFlags,

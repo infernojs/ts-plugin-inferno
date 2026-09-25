@@ -55,8 +55,12 @@ describe('Parser errors', function () {
         assert.equal(transform('<div a={b, c} />'), 'createVNode(1, "div", null, null, 1, { "a": (b, c) });')
     })
 
+    // The recovered tree has two bar attributes, "bar=" and "bar", so the plugin rejects the duplicate
     it('Should reject an unquoted call as attribute value', function () {
-        assert.equal(diagnosticMessages('<Foo bar=bar() />')[0], '\'{\' or JSX element expected.')
+        const diagnostics = ts.transpileModule('<Foo bar=bar() />', {fileName: 'file.tsx', reportDiagnostics: true, compilerOptions: {jsx: ts.JsxEmit.Preserve}}).diagnostics
+
+        assert.equal(ts.flattenDiagnosticMessageText(diagnostics[0].messageText, '\n'), '\'{\' or JSX element expected.')
+        expectThrows(() => transform('<Foo bar=bar() />'), 'file.tsx(1,10): Multiple bar props are not supported. Remove the duplicate bar prop.')
     })
 
     it('Should reject unterminated JSX contents', function () {

@@ -1,1 +1,1 @@
-<NewComponent ref={} a={} className={} class={} a={} b c/>
+<NewComponent ref={} a={} className={} class={} d={} b c/>

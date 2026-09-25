@@ -1,8 +1,17 @@
 import {describe, it} from 'node:test'
 import * as assert from 'node:assert/strict'
-import {expectValidJS, transform} from './helpers'
+import {expectThrows, expectValidJS, run, transform} from './helpers'
 
-// Cases that fail on the current plugin are in tests/known-bugs/attributes.test.ts
+// Returns a function that counts its calls, to check that side effects of dropped values still run
+function spy(returnValue?: unknown) {
+    const fn = () => {
+        fn.calls++
+        return returnValue
+    }
+    fn.calls = 0
+    return fn
+}
+
 describe('Attributes', () => {
     describe('verbatim attributes', () => {
         it('Should keep data- and aria- attributes', () => {
@@ -125,7 +134,59 @@ describe('Attributes', () => {
     })
 
     describe('duplicate attributes', () => {
-        // Rejecting duplicates is not implemented yet, see tests/known-bugs/attributes.test.ts
+        it('Should reject duplicate key props', () => {
+            expectThrows(() => transform('<div key="a" key={b()} />'), 'Multiple key props are not supported. Remove the duplicate key prop.')
+        })
+
+        it('Should reject duplicate props on elements', () => {
+            expectThrows(() => transform('<p prop prop />'), 'Multiple prop props are not supported. Remove the duplicate prop prop.')
+        })
+
+        it('Should reject duplicate props on components', () => {
+            expectThrows(() => transform('<Foo title="a" id="x" title="b" />'), 'Multiple title props are not supported. Remove the duplicate title prop.')
+        })
+
+        it('Should reject duplicate props on generic components', () => {
+            expectThrows(() => transform('<Foo<string> title="a" title="b" />'), 'Multiple title props are not supported. Remove the duplicate title prop.')
+        })
+
+        it('Should reject duplicate onComponent hooks', () => {
+            expectThrows(
+                () => transform('<Foo onComponentDidMount={a} onComponentDidMount={b} />'),
+                'Multiple onComponentDidMount props are not supported. Remove the duplicate onComponentDidMount prop.'
+            )
+        })
+
+        it('Should reject duplicate special flags', () => {
+            expectThrows(
+                () => transform('<div $HasKeyedChildren $HasKeyedChildren>{a}</div>'),
+                'Multiple $HasKeyedChildren props are not supported. Remove the duplicate $HasKeyedChildren prop.'
+            )
+        })
+
+        it('Should point the duplicate prop error at the duplicate', () => {
+            expectThrows(() => transform('<Foo title="a" id="x" title="b" />'), 'file.tsx(1,23)')
+        })
+
+        it('Should reject htmlFor together with for on elements', () => {
+            expectThrows(() => transform('<label htmlFor="a" for="b" />'), 'htmlFor and for both set the for prop. Remove one of them.')
+        })
+
+        it('Should reject a lowercased attribute together with its camelCase name', () => {
+            expectThrows(() => transform('<div tabIndex="1" tabindex="2" />'), 'tabIndex and tabindex both set the tabindex prop. Remove one of them.')
+        })
+
+        it('Should reject an svg attribute together with its camelCase name', () => {
+            expectThrows(() => transform('<rect strokeWidth="1" stroke-width="2" />'), 'strokeWidth and stroke-width both set the stroke-width prop. Remove one of them.')
+        })
+
+        it('Should reject a namespaced attribute together with its camelCase name', () => {
+            expectThrows(() => transform('<use xlinkHref="#a" xlink:href="#b" />'), 'xlinkHref and xlink:href both set the xlink:href prop. Remove one of them.')
+        })
+
+        it('Should point the mapped attribute error at the second attribute', () => {
+            expectThrows(() => transform('<label\n  htmlFor="a"\n  for="b"\n/>'), 'file.tsx(3,3)')
+        })
 
         it('Should allow htmlFor together with for on components', () => {
             assert.equal(transform('<Foo htmlFor="a" for="b" />'), 'createComponentVNode(2, Foo, { "htmlFor": "a", "for": "b" });')
@@ -138,12 +199,109 @@ describe('Attributes', () => {
             )
         })
 
+        it('Should evaluate a component children prop replaced by JSX children', () => {
+            const f = spy()
+            const vNode = run('<Foo children={f()}>2</Foo>', {Foo: 'Foo', f})
+
+            assert.equal(f.calls, 1)
+            assert.deepEqual(vNode.props, {children: '2'})
+        })
+
+        it('Should evaluate an element children prop replaced by JSX children', () => {
+            const f = spy()
+            const vNode = run('<div children={f()}>x</div>', {f})
+
+            assert.equal(f.calls, 1)
+            assert.equal(vNode.children, 'x')
+            assert.equal(vNode.childFlags, 16)
+        })
+
+        it('Should evaluate a children prop replaced by several JSX children', () => {
+            const f = spy()
+            const vNode = run('<div children={f()}><a/><b/></div>', {f})
+
+            assert.equal(f.calls, 1)
+            assert.deepEqual(vNode.children.map(child => child.type), ['a', 'b'])
+            assert.equal(vNode.childFlags, 4)
+        })
+
+        it('Should reject duplicate children props on components', () => {
+            expectThrows(() => transform('<Foo children={1} children={4}>2</Foo>'), 'Multiple children props are not supported. Remove the duplicate children prop.')
+        })
+
+        it('Should reject duplicate children props on elements', () => {
+            expectThrows(() => transform('<div children={a()} children={b()} />'), 'Multiple children props are not supported. Remove the duplicate children prop.')
+        })
+
+        it('Should point the duplicate children prop error at the duplicate', () => {
+            expectThrows(() => transform('<div\n  id="x"\n  children={a()}\n  children={b()}\n/>'), 'file.tsx(4,3)')
+        })
+
+        it('Should reject duplicate ref props on elements', () => {
+            expectThrows(() => transform('<div ref={a} ref={b} />'), 'Multiple ref props are not supported. Remove the duplicate ref prop.')
+        })
+
+        it('Should reject duplicate ref props on components', () => {
+            expectThrows(() => transform('<Foo ref={a} onComponentDidMount={m} ref={b} />'), 'Multiple ref props are not supported. Remove the duplicate ref prop.')
+        })
+
+        it('Should point the duplicate ref prop error at the duplicate', () => {
+            expectThrows(() => transform('<div ref={a} ref={b} />'), 'file.tsx(1,14)')
+        })
+
+        it('Should reject duplicate className props on elements', () => {
+            expectThrows(() => transform('<div className="a" className={b} />'), 'Multiple className props are not supported. Remove the duplicate className prop.')
+        })
+
+        it('Should reject duplicate class props on elements', () => {
+            expectThrows(() => transform('<div class="a" class={b} />'), 'Multiple class props are not supported. Remove the duplicate class prop.')
+        })
+
+        it('Should reject className together with class on elements', () => {
+            expectThrows(() => transform('<div className={a} class={b} />'), 'className and class both set the class name. Remove one of them.')
+        })
+
+        it('Should reject class together with className on elements', () => {
+            expectThrows(() => transform('<div class="a" className="b" />'), 'className and class both set the class name. Remove one of them.')
+        })
+
+        it('Should point the className and class error at the second one', () => {
+            expectThrows(() => transform('<div\n  className={a}\n  class={b}\n/>'), 'file.tsx(3,3)')
+        })
+
+        it('Should reject duplicate className props on components', () => {
+            expectThrows(() => transform('<Foo className="a" className="b" />'), 'Multiple className props are not supported. Remove the duplicate className prop.')
+        })
+
         it('Should drop replaced values without side effects', () => {
             assert.equal(transform('<div a children={["a", {b: 1}, () => x, -1]}>c</div>'), 'createVNode(1, "div", null, "c", 16, { "a": true });')
+        })
+
+        it('Should keep replaced values that may have side effects', () => {
+            let iterations = 0
+            const a = {
+                [Symbol.iterator]() {
+                    iterations++
+                    return [][Symbol.iterator]()
+                }
+            }
+            const vNode = run('<div children={[...a]}>c</div>', {a})
+
+            assert.equal(iterations, 1)
+            assert.equal(vNode.children, 'c')
+            assert.equal(vNode.childFlags, 16)
         })
     })
 
     describe('JSX as attribute values', () => {
+        it('Should compile an element attribute value without braces on an element', () => {
+            assert.equal(transform('<div attr=<span/> />'), 'createVNode(1, "div", null, null, 1, { "attr": createVNode(1, "span") });')
+        })
+
+        it('Should compile an element attribute value without braces on a component', () => {
+            assert.equal(transform('<Foo attr=<span/> />'), 'createComponentVNode(2, Foo, { "attr": createVNode(1, "span") });')
+        })
+
         it('Should compile a fragment attribute value', () => {
             assert.equal(transform('<Foo value={<>{a}</>} />'), 'createComponentVNode(2, Foo, { "value": createFragment(a, 0) });')
         })
@@ -267,7 +425,62 @@ describe('Attributes', () => {
         })
     })
 
+    describe('__proto__ prop', () => {
+        it('Should emit __proto__ as a computed key on components', () => {
+            assert.equal(transform('<Foo __proto__={x} />'), 'createComponentVNode(2, Foo, { ["__proto__"]: x });')
+        })
+
+        it('Should give the component an own __proto__ prop', () => {
+            const x = {marker: true}
+            const props = run('<Foo __proto__={x} />', {Foo: null, x}).props
+
+            assert.equal(Object.prototype.hasOwnProperty.call(props, '__proto__'), true)
+            assert.equal(Object.getPrototypeOf(props), Object.prototype)
+        })
+
+        it('Should emit __proto__ as a computed key on generic components', () => {
+            assert.equal(transform('<Foo<Bar> __proto__={x} />'), 'createComponentVNode(2, Foo, { ["__proto__"]: x });')
+        })
+
+        it('Should emit __proto__ as a computed key on elements', () => {
+            assert.equal(transform('<div __proto__={x} />'), 'createVNode(1, "div", null, null, 1, { ["__proto__"]: x });')
+        })
+
+        it('Should keep __proto__ next to other props (babel proto-in-jsx-attribute)', () => {
+            assert.equal(transform('<p __proto__={null} class="bar" />'), 'createVNode(1, "p", "bar", null, 1, { ["__proto__"]: null });')
+        })
+    })
+
+    describe('Object.prototype names as attributes', () => {
+        it('Should pass constructor as a prop', () => {
+            assert.equal(transform('<div constructor="foo" />'), 'createVNode(1, "div", null, null, 1, { "constructor": "foo" });')
+        })
+
+        it('Should pass toString and hasOwnProperty as props', () => {
+            assert.equal(transform('<div toString="x" hasOwnProperty="y" />'), 'createVNode(1, "div", null, null, 1, { "toString": "x", "hasOwnProperty": "y" });')
+        })
+
+        it('Should pass valueOf as a prop', () => {
+            assert.equal(transform('<div valueOf={v} />'), 'createVNode(1, "div", null, null, 1, { "valueOf": v });')
+        })
+
+        it('Should pass isPrototypeOf and propertyIsEnumerable as props', () => {
+            assert.equal(
+                transform('<div isPrototypeOf={v} propertyIsEnumerable={w} />'),
+                'createVNode(1, "div", null, null, 1, { "isPrototypeOf": v, "propertyIsEnumerable": w });'
+            )
+        })
+
+        it('Should pass constructor as a prop on svg elements', () => {
+            assert.equal(transform('<rect constructor="x" />'), 'createVNode(32, "rect", null, null, 1, { "constructor": "x" });')
+        })
+    })
+
     describe('current behaviour (questionable)', () => {
+        it('Should pass true as className for a valueless className', () => {
+            assert.equal(transform('<div className />'), 'createVNode(1, "div", true);')
+        })
+
         // Babel keeps them as leading comments of the props
         it('Should drop comments between attributes', () => {
             assert.equal(

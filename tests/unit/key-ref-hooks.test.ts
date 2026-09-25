@@ -1,6 +1,6 @@
 import {describe, it} from 'node:test'
 import * as assert from 'node:assert/strict'
-import {transform} from './helpers'
+import {run, transform} from './helpers'
 
 describe('key, ref and onComponent hooks', () => {
     describe('ref', () => {
@@ -102,6 +102,9 @@ describe('key, ref and onComponent hooks', () => {
     })
 
     describe('onComponent hooks', () => {
+        const r = {onComponentWillMount: 'willMount'}
+        const scope = {Foo: 'Foo', r, m: 'didMount', a: 'didAppear', b: 'didMount', i: 1}
+
         it('Should move every onComponent hook into ref', () => {
             assert.equal(transform('<Foo onComponentWillMount={a} onComponentWillUnmount={b} onComponentShouldUpdate={c} onComponentWillUpdate={d} onComponentDidUpdate={e} />'), 'createComponentVNode(2, Foo, null, null, { "onComponentWillMount": a, "onComponentWillUnmount": b, "onComponentShouldUpdate": c, "onComponentWillUpdate": d, "onComponentDidUpdate": e });')
         })
@@ -116,6 +119,32 @@ describe('key, ref and onComponent hooks', () => {
 
         it('Should keep hooks as props on elements', () => {
             assert.equal(transform('<div onComponentDidMount={f} />'), 'createVNode(1, "div", null, null, 1, { "onComponentDidMount": f });')
+        })
+
+        it('Should merge ref into the hooks when ref comes before a hook', () => {
+            assert.equal(transform('<Foo ref={r} onComponentDidMount={m} />'), 'createComponentVNode(2, Foo, null, null, Object.assign({}, r, { "onComponentDidMount": m }));')
+            assert.deepEqual(run('<Foo ref={r} onComponentDidMount={m} />', scope).ref, {onComponentWillMount: 'willMount', onComponentDidMount: 'didMount'})
+        })
+
+        it('Should merge ref into the hooks when ref comes after the hooks', () => {
+            assert.equal(transform('<Foo onComponentDidMount={m} ref={r} />'), 'createComponentVNode(2, Foo, null, null, Object.assign({}, r, { "onComponentDidMount": m }));')
+            assert.deepEqual(run('<Foo onComponentDidMount={m} ref={r} />', scope).ref, {onComponentWillMount: 'willMount', onComponentDidMount: 'didMount'})
+        })
+
+        it('Should compile ref and hooks the same in any order', () => {
+            assert.equal(transform('<Foo ref={r} onComponentDidMount={m} />'), transform('<Foo onComponentDidMount={m} ref={r} />'))
+        })
+
+        it('Should merge ref with several hooks, key and children', () => {
+            const vNode = run('<Foo key={i} ref={r} onComponentDidAppear={a} onComponentDidMount={b}>{i}</Foo>', scope)
+
+            assert.deepEqual(vNode.props, {children: 1})
+            assert.equal(vNode.key, 1)
+            assert.deepEqual(vNode.ref, {onComponentWillMount: 'willMount', onComponentDidAppear: 'didAppear', onComponentDidMount: 'didMount'})
+        })
+
+        it('Should merge ref into the hooks of a generic component', () => {
+            assert.deepEqual(run('<Foo<string> ref={r as any} onComponentDidMount={m} />', scope).ref, {onComponentWillMount: 'willMount', onComponentDidMount: 'didMount'})
         })
 
         it('Should move hooks next to spread props', () => {
