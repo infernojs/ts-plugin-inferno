@@ -1,6 +1,8 @@
 import {describe, it} from 'node:test'
 import * as assert from 'node:assert/strict'
-import {run, transform} from './helpers'
+import {expectThrows, run, transform} from './helpers'
+
+const VALUELESS_KEY_ERROR = 'Please provide an explicit key value. Using "key" as a shorthand for "key={true}" is not allowed.'
 
 describe('key, ref and onComponent hooks', () => {
     describe('ref', () => {
@@ -51,9 +53,8 @@ describe('key, ref and onComponent hooks', () => {
             assert.equal(transform('<div key={undefined} />'), 'createVNode(1, "div", null, null, 1, null, undefined);')
         })
 
-        // Babel's case uses self-closing children, see tests/known-bugs/key-ref-hooks.test.ts
         it('Should pass numeric and empty string keys', () => {
-            assert.equal(transform('<div key={0}><a key=""></a><b key="x"></b></div>'), 'createVNode(1, "div", null, [createVNode(1, "a", null, null, 1, null, ""), createVNode(1, "b", null, null, 1, null, "x")], 8, null, 0);')
+            assert.equal(transform('<div key={0}><a key=""/><b key="x"/></div>'), 'createVNode(1, "div", null, [createVNode(1, "a", null, null, 1, null, ""), createVNode(1, "b", null, null, 1, null, "x")], 8, null, 0);')
         })
 
         it('Should pass an object key', () => {
@@ -67,21 +68,43 @@ describe('key, ref and onComponent hooks', () => {
         it('Should strip satisfies from a key', () => {
             assert.equal(transform('<Foo key={id satisfies string} />'), 'createComponentVNode(2, Foo, null, id);')
         })
+
+        it('Should reject a valueless key on an element', () => {
+            expectThrows(() => transform('<div key />'), VALUELESS_KEY_ERROR)
+        })
+
+        it('Should reject a valueless key on a component', () => {
+            expectThrows(() => transform('<Foo key />'), VALUELESS_KEY_ERROR)
+        })
+
+        it('Should reject a valueless key inside an array (babel should-disallow-valueless-key)', () => {
+            expectThrows(() => transform('[<div key></div>]'), VALUELESS_KEY_ERROR)
+        })
+
+        it('Should reject a valueless key on a generic component', () => {
+            expectThrows(() => transform('<Foo<string> key />'), VALUELESS_KEY_ERROR)
+        })
+
+        it('Should point the valueless key error at the key', () => {
+            expectThrows(() => transform('<ul>\n  <li key>a</li>\n</ul>'), 'file.tsx(2,7)')
+        })
     })
 
     describe('keyed children', () => {
-        // Babel's case uses self-closing children, see tests/known-bugs/key-ref-hooks.test.ts
         it('Should mark mixed keyed and unkeyed children as keyed', () => {
-            assert.equal(transform('<div><span key="k"></span><span></span></div>'), 'createVNode(1, "div", null, [createVNode(1, "span", null, null, 1, null, "k"), createVNode(1, "span")], 8);')
+            assert.equal(transform('<div><span key="k"/><span/></div>'), 'createVNode(1, "div", null, [createVNode(1, "span", null, null, 1, null, "k"), createVNode(1, "span")], 8);')
         })
 
         it('Should mark a single keyed child as a vnode child', () => {
             assert.equal(transform('<div><span key="k"/></div>'), 'createVNode(1, "div", null, createVNode(1, "span", null, null, 1, null, "k"), 2);')
         })
 
-        // Babel's case uses self-closing children, see tests/known-bugs/key-ref-hooks.test.ts
         it('Should mark duplicate sibling keys as keyed', () => {
-            assert.equal(transform('<><a key="a"></a><a key="a"></a></>'), 'createFragment([createVNode(1, "a", null, null, 1, null, "a"), createVNode(1, "a", null, null, 1, null, "a")], 8);')
+            assert.equal(transform('<><a key="a"/><a key="a"/></>'), 'createFragment([createVNode(1, "a", null, null, 1, null, "a"), createVNode(1, "a", null, null, 1, null, "a")], 8);')
+        })
+
+        it('Should mark self-closing keyed component children as keyed', () => {
+            assert.equal(transform('<div><Item<T> key={a} /><Item<T> key={b} /></div>'), 'createVNode(1, "div", null, [createComponentVNode(2, Item, null, a), createComponentVNode(2, Item, null, b)], 8);')
         })
 
         it('Should not mark children as keyed when normalization is needed', () => {

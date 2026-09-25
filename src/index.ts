@@ -754,7 +754,10 @@ export default () => {
                                 ref = initializer ? getValue(initializer, visitor, factory) : null
                                 break
                             case 'key':
-                                key = initializer ? getValue(initializer, visitor, factory) : null
+                                if (!initializer) {
+                                    throw createError(astProp, 'Please provide an explicit key value. Using "key" as a shorthand for "key={true}" is not allowed.')
+                                }
+                                key = getValue(initializer, visitor, factory)
                                 break
                             case PROP_ReCreate:
                                 hasReCreateFlag = true
@@ -833,8 +836,12 @@ export default () => {
                      * If they do, flag parent as hasKeyedChildren to increase runtime performance of Inferno
                      * When key already found within one of its children, they must all be keyed
                      */
-                    if (parentCanBeKeyed === false && child.openingElement) {
-                        let astProps = child.openingElement.attributes.properties
+                    const attributes = child.kind === SyntaxKind.JsxElement
+                        ? child.openingElement.attributes
+                        : child.kind === SyntaxKind.JsxSelfClosingElement ? child.attributes : null
+
+                    if (parentCanBeKeyed === false && attributes) {
+                        let astProps = attributes.properties
                         let len = astProps.length
 
                         while (parentCanBeKeyed === false && len-- > 0) {
