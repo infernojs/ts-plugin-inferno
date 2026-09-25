@@ -28,6 +28,7 @@ import {
 } from "typescript";
 import {ChildFlags, VNodeFlags} from './utils/flags'
 import isComponent from './utils/isComponent'
+import isValidIdentifier from './utils/isValidIdentifier'
 import isFragment from './utils/isFragment'
 import createAssignHelper from './utils/createAssignHelper'
 import getValue from './utils/getValue'
@@ -605,7 +606,21 @@ export default () => {
             let vNodeType
             let flags
 
+            if (type.kind === SyntaxKind.JsxNamespacedName) {
+                throw createError(type, `Namespace tags like <${idText(type.namespace)}:${idText(type.name)}> are not supported.`)
+            }
+
             if (type.kind === SyntaxKind.PropertyAccessExpression) {
+                let object = type.expression
+
+                while (object.kind === SyntaxKind.PropertyAccessExpression) {
+                    object = object.expression
+                }
+                // The object of a member expression tag must be a variable, which a-b in <a-b.c /> cannot be
+                if (object.kind === SyntaxKind.Identifier && !isValidIdentifier(idText(object))) {
+                    throw createError(object, `${idText(object)} is not a valid variable name for a member expression tag.`)
+                }
+
                 // A member expression like <a.b> or <this.foo> references a component whatever its casing
                 if (type.name.text === 'Fragment') {
                     vNodeType = TYPE_FRAGMENT
@@ -615,19 +630,18 @@ export default () => {
                 }
             } else {
                 // Read from the node instead of the source text, so JSX built by other transformers works too
-                const text = type.kind === SyntaxKind.JsxNamespacedName
-                    ? `${idText(type.namespace)}:${idText(type.name)}`
-                    : type.kind === SyntaxKind.ThisKeyword ? 'this' : idText(type)
+                const text = type.kind === SyntaxKind.ThisKeyword ? 'this' : idText(type)
 
                 if (isFragment(text)) {
                     vNodeType = TYPE_FRAGMENT
-                } else if (isComponent(text)) {
+                } else if (isComponent(text) && isValidIdentifier(text)) {
+                    // Names that are not identifiers, like Foo-bar, can only be elements
                     vNodeType = TYPE_COMPONENT
                     flags = VNodeFlags.ComponentUnknown
                 } else {
                     vNodeType = TYPE_ELEMENT
                     type = factory.createStringLiteral(text)
-                    flags = vNodeTypes[text] || VNodeFlags.HtmlElement
+                    flags = hasOwn(vNodeTypes, text) ? vNodeTypes[text] : VNodeFlags.HtmlElement
                 }
             }
 

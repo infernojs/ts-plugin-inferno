@@ -1,6 +1,7 @@
 import {describe, it} from 'node:test'
 import * as assert from 'node:assert/strict'
-import {diagnosticMessages, es5, run, transform, transformWith} from './helpers'
+import * as ts from 'typescript'
+import {diagnosticMessages, es5, expectThrows, run, transform, transformWith} from './helpers'
 
 describe('Tag names', () => {
     describe('member expressions', () => {
@@ -79,6 +80,24 @@ describe('Tag names', () => {
         })
     })
 
+    describe('Object.prototype names as tags', () => {
+        it('Should compile <hasOwnProperty> as an element (babel should-handle-has-own-property-correctly)', () => {
+            assert.equal(transform('<hasOwnProperty>testing</hasOwnProperty>'), 'createVNode(1, "hasOwnProperty", null, "testing", 16);')
+        })
+
+        it('Should compile <constructor> as an element', () => {
+            assert.equal(transform('<constructor />'), 'createVNode(1, "constructor");')
+        })
+
+        it('Should compile <toString> as an element', () => {
+            assert.equal(transform('<toString />'), 'createVNode(1, "toString");')
+        })
+
+        it('Should compile <valueOf> as an element', () => {
+            assert.equal(transform('<valueOf />'), 'createVNode(1, "valueOf");')
+        })
+    })
+
     describe('type arguments', () => {
         it('Should drop the type arguments of a generic component', () => {
             assert.equal(transform('<Foo<string> />'), 'createComponentVNode(2, Foo);')
@@ -94,10 +113,28 @@ describe('Tag names', () => {
     })
 
     describe('namespaced tags', () => {
-        // TypeScript parses namespaced tag names without a diagnostic, the plugin has to reject them (tests/known-bugs/tag-names.test.ts)
+        // TypeScript parses namespaced tag names without a diagnostic, so the plugin has to reject them
         it('Should parse namespaced tags without TypeScript diagnostics', () => {
-            assert.deepEqual(diagnosticMessages('<svg:rect />'), [])
-            assert.deepEqual(diagnosticMessages('<f:image n:attr />'), [])
+            const diagnostics = (input: string) => ts.transpileModule(input, {fileName: 'file.tsx', reportDiagnostics: true, compilerOptions: {jsx: ts.JsxEmit.Preserve}}).diagnostics
+
+            assert.deepEqual(diagnostics('<svg:rect />'), [])
+            assert.deepEqual(diagnostics('<f:image n:attr />'), [])
+        })
+
+        it('Should reject namespaced svg tags', () => {
+            expectThrows(() => transform('<svg:rect />'), 'Namespace tags like <svg:rect> are not supported.')
+        })
+
+        it('Should reject namespaced tags with namespaced attributes', () => {
+            expectThrows(() => transform('<f:image n:attr />'), 'Namespace tags like <f:image> are not supported.')
+        })
+
+        it('Should reject namespaced component tags', () => {
+            expectThrows(() => transform('<Namespace:Component />'), 'Namespace tags like <Namespace:Component> are not supported.')
+        })
+
+        it('Should point the namespace tag error at the tag name', () => {
+            expectThrows(() => transform('<div>\n  <svg:rect />\n</div>'), 'file.tsx(2,4)')
         })
     })
 
@@ -113,6 +150,23 @@ describe('Tag names', () => {
 
         it('Should report a hyphenated property of this as a syntax error', () => {
             assert.ok(diagnosticMessages('<this.foo-bar />').includes('Identifier expected.'))
+        })
+
+        it('Should compile an uppercase hyphenated tag as an element', () => {
+            assert.equal(transform('<Foo-bar />'), 'createVNode(1, "Foo-bar");')
+        })
+
+        it('Should compile a mixed-case hyphenated tag with children (babel-parser basic/7)', () => {
+            assert.equal(transform('<AbC-def test="x">bar</AbC-def>'), 'createVNode(1, "AbC-def", null, "bar", 16, { "test": "x" });')
+        })
+
+        it('Should compile an underscore-prefixed hyphenated tag as an element', () => {
+            assert.equal(transform('<_foo-bar />'), 'createVNode(1, "_foo-bar");')
+        })
+
+        it('Should reject a hyphenated member expression object', () => {
+            expectThrows(() => transform('<a-b.c />'), 'a-b is not a valid variable name for a member expression tag.')
+            expectThrows(() => transform('<a-b.c />'), 'file.tsx(1,2)')
         })
     })
 
