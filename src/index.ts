@@ -5,6 +5,7 @@ import {
     getSourceMapRange,
     idText,
     Identifier,
+    JsxAttribute,
     JsxAttributeLike,
     JsxChild,
     JsxElement,
@@ -42,6 +43,7 @@ import attributeTransforms from './utils/attributeTransforms'
 import lowerCaseAttributes from './utils/lowerCaseAttributes'
 import isNodeNull from './utils/isNodeNull'
 import handleWhiteSpace from './utils/handleWhiteSpace'
+import codeFrame from './utils/codeFrame'
 import vNodeTypes from './utils/vNodeTypes'
 import {updateSourceFile} from './updateSourceFile'
 
@@ -53,6 +55,10 @@ let PROP_TEXT_CHILDREN = '$HasTextChildren'
 let PROP_ReCreate = '$ReCreate'
 let PROP_ChildFlag = '$ChildFlag'
 let PROP_Flags = '$Flags'
+
+// Child flags in the order they take precedence over each other
+const CHILD_FLAG_PROPS = [PROP_ChildFlag, PROP_HasKeyedChildren, PROP_HasNonKeyedChildren, PROP_TEXT_CHILDREN, PROP_VNODE_CHILDREN]
+const USELESS_FLAGS_LEVELS = ['warn', 'error', 'off']
 
 const TYPE_ELEMENT = 0
 const TYPE_COMPONENT = 1
@@ -80,7 +86,22 @@ function hasOwn(object: object, key: string) {
     return Object.prototype.hasOwnProperty.call(object, key)
 }
 
-export default () => {
+export interface Options {
+    /**
+     * What to do about special flags that cannot change the compiled output, e.g. a child flag on static children:
+     * "warn" (default) prints a warning with console.warn, "error" throws and "off" does nothing.
+     */
+    uselessFlags?: 'warn' | 'error' | 'off'
+}
+
+export default (options?: Options) => {
+    const uselessFlags = options?.uselessFlags
+
+    // Checked here so that a mistyped level fails when the plugin is configured instead of being ignored
+    if (uselessFlags !== undefined && !USELESS_FLAGS_LEVELS.includes(uselessFlags)) {
+        throw new Error('ts-plugin-inferno: the uselessFlags option must be "warn", "error" or "off", got ' + JSON.stringify(uselessFlags) + '.')
+    }
+
     return (context: TransformationContext): Transformer<SourceFile> => {
         const {factory} = context;
         const compilerOptions = context.getCompilerOptions()
@@ -116,6 +137,17 @@ export default () => {
             const {line, character} = getLineAndCharacterOfPosition(currentSourceFile, node.getStart(currentSourceFile))
 
             return new Error(`${currentSourceFile.fileName}(${line + 1},${character + 1}): ${message}`)
+        }
+
+        // Like createError, with the code around the node. JSX built by other transformers has no code to show.
+        function withCodeFrame(node: Node, message: string) {
+            if (node.pos < 0) {
+                return `${currentSourceFile.fileName}: ${message}`
+            }
+            const start = node.getStart(currentSourceFile)
+            const {line, character} = getLineAndCharacterOfPosition(currentSourceFile, start)
+
+            return `${currentSourceFile.fileName}(${line + 1},${character + 1}): ${message}\n${codeFrame(currentSourceFile, start, node.end)}`
         }
 
         /*
@@ -428,6 +460,10 @@ export default () => {
                 )
             }
 
+            if (vProps.flagProps !== null && uselessFlags !== 'off') {
+                checkFlags(vProps.flagProps, vType.vNodeType, childrenResults, vProps.propChildren)
+            }
+
             let childFlags = ChildFlags.HasInvalidChildren
             let flags = vType.flags
             let overriddenChildren = null
@@ -488,7 +524,8 @@ export default () => {
                         // children={expression}, or children=<element /> without braces
                         const value = vProps.propChildren.kind === SyntaxKind.JsxExpression ? vProps.propChildren.expression : vProps.propChildren
 
-                        vChildren = getValue(vProps.propChildren, visitor, factory)
+                        // Compiled once with the other props, so JSX in it is not visited again
+                        vChildren = vProps.childrenProp.initializer
                         // Only JSX is known to be a single vNode, other values are normalized at runtime like {expression} children
                         childFlags = vType.vNodeType !== TYPE_FRAGMENT && (isJsx(value) || vProps.childrenKnown)
                             ? ChildFlags.HasVNodeChildren
@@ -700,6 +737,8 @@ export default () => {
             let childrenProp = null
             let childFlags = null
             let contentEditable = false
+            // The special flag attributes, for the useless flag checks
+            let flagProps: JsxAttribute[] | null = null
             let assignArgs = []
             let spreads = null
             let propsPropertyAssignments = []
@@ -784,21 +823,26 @@ export default () => {
                                 propName.charAt(0).toUpperCase() +
                                 propName.slice(1)
                             case PROP_ChildFlag:
+                                flagProps = addFlagProp(flagProps, astProp)
                                 childrenKnown = true
                                 childFlags = getValue(initializer, visitor, factory)
                                 break
                             case PROP_VNODE_CHILDREN:
+                                flagProps = addFlagProp(flagProps, astProp)
                                 childrenKnown = true
                                 break
                             case PROP_TEXT_CHILDREN:
+                                flagProps = addFlagProp(flagProps, astProp)
                                 childrenKnown = true
                                 hasTextChildren = true
                                 break
                             case PROP_HasNonKeyedChildren:
+                                flagProps = addFlagProp(flagProps, astProp)
                                 hasNonKeyedChildren = true
                                 childrenKnown = true
                                 break
                             case PROP_HasKeyedChildren:
+                                flagProps = addFlagProp(flagProps, astProp)
                                 hasKeyedChildren = true
                                 childrenKnown = true
                                 break
@@ -812,9 +856,11 @@ export default () => {
                                 key = getValue(initializer, visitor, factory)
                                 break
                             case PROP_ReCreate:
+                                flagProps = addFlagProp(flagProps, astProp)
                                 hasReCreateFlag = true
                                 break
                             case PROP_Flags:
+                                flagProps = addFlagProp(flagProps, astProp)
                                 // Replaces the flags of an element or a component, e.g. $Flags={VNodeFlags.InputElement}
                                 flagsOverride = getValue(initializer, visitor, factory)
                                 break
@@ -863,6 +909,99 @@ export default () => {
                 needsNormalization: needsNormalization,
                 contentEditable: contentEditable,
                 hasTextChildren: hasTextChildren,
+                flagProps: flagProps,
+            }
+        }
+
+        // The array is created with the first flag, as most elements have none
+        function addFlagProp(flagProps: JsxAttribute[] | null, astProp: JsxAttribute) {
+            if (flagProps === null) {
+                return [astProp]
+            }
+            flagProps.push(astProp)
+            return flagProps
+        }
+
+        /*
+         * Whether the plugin sets the child flags itself because it sees the shape of the children, as it does for
+         * static JSX children and for the children props that createVNode compiles without normalization.
+         * childrenResults is empty for a self-closing element, propChildren is the value of the children attribute.
+         */
+        function isChildShapeKnown(childrenResults, propChildren, isFragment: boolean) {
+            if (childrenResults.requiresNormalization) {
+                return false
+            }
+            const children = childrenResults.children
+
+            // JSX children replace a children prop
+            if (!propChildren || (children && (children.kind !== SyntaxKind.ArrayLiteralExpression || children.elements.length > 0))) {
+                return true
+            }
+            if (propChildren.kind === SyntaxKind.StringLiteral) {
+                return true
+            }
+            if (propChildren.kind !== SyntaxKind.JsxExpression) {
+                // children=<a /> without braces; a Fragment normalizes a JSX children prop at runtime
+                return !isFragment
+            }
+            const expression = propChildren.expression
+
+            if (!expression || expression.kind === SyntaxKind.NullKeyword) {
+                return true
+            }
+            return !isFragment && isJsx(expression)
+        }
+
+        // Warnings go to the console with the location and the code of the flag, as TypeScript has no API for them
+        function reportUselessFlag(astProp: JsxAttribute, message: string) {
+            if (uselessFlags === 'error') {
+                throw new Error(withCodeFrame(astProp, message))
+            }
+            console.warn('ts-plugin-inferno: ' + withCodeFrame(astProp, message))
+        }
+
+        // Reports the flags that cannot change the compiled vNode; each flag is reported once, for its first reason
+        function checkFlags(flagProps: JsxAttribute[], vNodeType: number, childrenResults, propChildren) {
+            let hasFlagsOverride = false
+            let winner: string | null = null
+
+            for (let i = 0; i < flagProps.length; i++) {
+                const flagName = getPropertyName(flagProps[i])
+
+                if (flagName === PROP_Flags) {
+                    hasFlagsOverride = true
+                } else if (flagName !== PROP_ReCreate) {
+                    // The child flag that the compiled vNode uses when the children are dynamic
+                    if (winner === null || CHILD_FLAG_PROPS.indexOf(flagName) < CHILD_FLAG_PROPS.indexOf(winner)) {
+                        winner = flagName
+                    }
+                }
+            }
+            const shapeKnown = winner !== null && vNodeType !== TYPE_COMPONENT && isChildShapeKnown(childrenResults, propChildren, vNodeType === TYPE_FRAGMENT)
+
+            for (let i = 0; i < flagProps.length; i++) {
+                const astProp = flagProps[i]
+                const name = getPropertyName(astProp)
+                let message: string | null = null
+
+                if (name === PROP_Flags || name === PROP_ReCreate) {
+                    if (vNodeType === TYPE_FRAGMENT) {
+                        message = name + ' has no effect on Fragments.'
+                    } else if (name === PROP_ReCreate && hasFlagsOverride) {
+                        message = PROP_ReCreate + ' is ignored because ' + PROP_Flags + ' replaces the vNode flags. Include ReCreate (' + VNodeFlags.ReCreate + ') in ' + PROP_Flags + ' instead.'
+                    }
+                } else if (vNodeType === TYPE_COMPONENT) {
+                    message = name + ' has no effect on components. Their children are passed in props.children.'
+                } else if (shapeKnown) {
+                    message = name + ' is not needed: the children are known at compile time, so the plugin sets their child flags. ' +
+                        'Child flags only help with dynamic children such as {expression}.'
+                } else if (name !== winner) {
+                    message = name + ' is ignored because ' + winner + ' takes precedence. Remove one of them.'
+                }
+
+                if (message !== null) {
+                    reportUselessFlag(astProp, message)
+                }
             }
         }
 

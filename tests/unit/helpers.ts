@@ -1,7 +1,7 @@
 import * as assert from 'node:assert/strict'
 import {spawnSync} from 'node:child_process'
 import * as ts from 'typescript'
-import transformer from '../../src'
+import transformer, {Options} from '../../src'
 
 /*
  * Assertion based test helpers. The reference suite (tests/index.ts) compiles whole files and compares them
@@ -34,22 +34,54 @@ export interface TranspileResult {
 }
 
 /*
+ * Runs fn with console.warn replaced by a collector, so that the useless flag warnings of the plugin do not clutter
+ * the test output. Returns {result, warnings}.
+ */
+export function collectWarnings<T>(fn: () => T): {result: T, warnings: string[]} {
+    const warn = console.warn
+    const warnings: string[] = []
+
+    console.warn = (message: string) => {
+        warnings.push(message)
+    }
+    try {
+        return {result: fn(), warnings}
+    } finally {
+        console.warn = warn
+    }
+}
+
+function transpileWarnings(input: string, compilerOptions: ts.CompilerOptions | undefined, fileName: string, pluginOptions?: Options): {result: TranspileResult, warnings: string[]} {
+    return collectWarnings(() => {
+        const result = ts.transpileModule(input, {
+            fileName,
+            reportDiagnostics: true,
+            compilerOptions: {...baseCompilerOptions, ...compilerOptions},
+            transformers: {after: [transformer(pluginOptions)]}
+        })
+
+        return {
+            code: result.outputText,
+            map: result.sourceMapText,
+            diagnostics: result.diagnostics ?? []
+        }
+    })
+}
+
+/*
  * Compiles `input` with the plugin as an `after` transformer and returns the emitted code untouched,
  * the source map when compilerOptions.sourceMap is set, and the syntactic diagnostics of the input.
+ * Useless flag warnings are dropped, they are tested in useless-flags.test.ts.
  */
 export function transpile(input: string, compilerOptions?: ts.CompilerOptions, fileName = 'file.tsx'): TranspileResult {
-    const result = ts.transpileModule(input, {
-        fileName,
-        reportDiagnostics: true,
-        compilerOptions: {...baseCompilerOptions, ...compilerOptions},
-        transformers: {after: [transformer()]}
-    })
+    return transpileWarnings(input, compilerOptions, fileName).result
+}
 
-    return {
-        code: result.outputText,
-        map: result.sourceMapText,
-        diagnostics: result.diagnostics ?? []
-    }
+// Emitted code like transform() and the messages the plugin passed to console.warn
+export function transformWarnings(input: string, pluginOptions?: Options, fileName = 'file.tsx'): {code: string, warnings: string[]} {
+    const {result, warnings} = transpileWarnings(input, undefined, fileName, pluginOptions)
+
+    return {code: stripInfernoImport(stripSourceMapComment(result.code).trimEnd()), warnings}
 }
 
 export function stripInfernoImport(code: string): string {

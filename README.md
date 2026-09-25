@@ -25,6 +25,91 @@ options: {
 
 It's different depending on what bundler you're using. Please check the examples folder.
 
+## Options
+
+```javascript
+transformInferno({
+    uselessFlags: 'warn'
+})
+```
+
+### uselessFlags
+
+What to do about [useless flags](#useless-flags):
+
+- `'warn'` (default): print a warning with `console.warn`.
+- `'error'`: stop the build with an error that points at the flag. For example, CI can use it to keep useless flags out.
+- `'off'`: do nothing.
+
+Any other value throws when the plugin is created, so a typo does not turn the check off silently.
+To use a different level in CI, set it where the plugin is created:
+
+```javascript
+after: [transformInferno({
+    // Most CI services set CI=true
+    uselessFlags: process.env.CI ? 'error' : 'warn'
+})],
+```
+
+## Special flags
+
+The plugin provides a few compile time flags that can be used to optimize an Inferno application:
+
+```tsx
+// ChildFlags
+<div $HasTextChildren /> - Children is rendered as pure text
+<div $HasVNodeChildren /> - Children is another vNode (Element or Component)
+<div $HasNonKeyedChildren /> - Children is always an array without keys
+<div $HasKeyedChildren /> - Children is an array of vNodes having unique keys
+<div $ChildFlag={expression} /> - Defines the children shape at runtime, see ChildFlags in inferno-vnode-flags
+
+// Functional flags
+<div $ReCreate /> - Always remove and add the node, it can be used to replace key={Math.random()}
+<div $Flags={expression} /> - Replaces the vNode flags, see VNodeFlags in inferno-vnode-flags
+```
+
+### Useless flags
+
+Child flags are only needed for children whose shape the plugin cannot see, such as `{expression}` children or a `children={expression}` prop.
+When the children are written as JSX, the plugin sets the child flags itself.
+It warns about flags that cannot improve the output:
+
+```tsx
+// The children are known at compile time: the plugin already compiles them with HasVNodeChildren
+<div $HasVNodeChildren>
+  <h1>Hi</h1>
+</div>
+
+// Components get their children in props.children, so child flags do nothing
+<Foo $HasKeyedChildren>{items}</Foo>
+
+// Only one child flag applies. The order is $ChildFlag, $HasKeyedChildren, $HasNonKeyedChildren,
+// $HasTextChildren, $HasVNodeChildren
+<div $HasKeyedChildren $HasNonKeyedChildren>{items}</div>
+
+// $Flags replaces all the vNode flags, including ReCreate
+<div $ReCreate $Flags={1} />
+
+// Fragments have no vNode flags
+<Fragment $Flags={1} $ReCreate>{items}</Fragment>
+```
+
+A warning shows the file, line and column, the reason and the code around the flag:
+
+```
+ts-plugin-inferno: /project/src/App.tsx(3,10): $HasVNodeChildren is not needed: the children are known at compile time, so the plugin sets their child flags. Child flags only help with dynamic children such as {expression}.
+  1 | function App() {
+  2 |   return (
+> 3 |     <div $HasVNodeChildren>
+    |          ^^^^^^^^^^^^^^^^^
+  4 |       <h1>Hi</h1>
+  5 |     </div>
+  6 |   );
+```
+
+With `uselessFlags: 'error'` the build fails at the first useless flag, with the same message and code.
+The warnings do not change the compiled code. Remove the flags they point at, or set `uselessFlags: 'off'`.
+
 ## Breaking change in v6.0.0
 
 

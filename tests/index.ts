@@ -54,7 +54,8 @@ function compile(path: string, callback) {
     const program = createProgram(files, config, compilerHost)
 
     program.emit(undefined, compare(), undefined, undefined, {
-        after: [transform()],
+        // The level does not change the output, useless flag warnings are tested in tests/unit/useless-flags.test.ts
+        after: [transform({uselessFlags: 'off'})],
     })
 
     callback(files, 'ES5')
@@ -66,7 +67,7 @@ function compileES6(path: string, callback) {
     const program = createProgram(files, configES6, compilerHost)
 
     program.emit(undefined, compare('ES6'), undefined, undefined, {
-        after: [transform()],
+        after: [transform({uselessFlags: 'off'})],
     })
 
     callback(files, 'ES6')
