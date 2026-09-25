@@ -25,6 +25,9 @@ options: {
 
 It's different depending on what bundler you're using. Please check the examples folder.
 
+The plugin imports the Inferno functions that the compiled JSX calls (`createVNode`, `createComponentVNode`, ...) in the module format of the output.
+A file without imports and exports is a script (unless `moduleDetection` is `"force"`), which TypeScript emits without a module wrapper, so the plugin requires them there with `require("inferno")`: an import declaration would turn the script into a module.
+
 ## Options
 
 ```javascript
@@ -67,6 +70,8 @@ The plugin provides a few compile time flags that can be used to optimize an Inf
 <div $ReCreate /> - Always remove and add the node, it can be used to replace key={Math.random()}
 <div $Flags={expression} /> - Replaces the vNode flags, see VNodeFlags in inferno-vnode-flags
 ```
+
+`$ChildFlag` and `$Flags` need a value, a valueless one is a compile error.
 
 ### Useless flags
 

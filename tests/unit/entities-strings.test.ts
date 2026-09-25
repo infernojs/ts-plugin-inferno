@@ -280,6 +280,40 @@ describe('Entities and strings', () => {
         })
     })
 
+    // The string "null" is a value like any other string, only the null keyword leaves an argument out
+    describe('the string "null"', () => {
+        it('Should keep null text', () => {
+            assert.equal(transform('<div>null</div>'), 'createVNode(1, "div", null, "null", 16);')
+        })
+
+        it('Should keep a null string expression child', () => {
+            assert.equal(transform('<div>{"null"}</div>'), 'createVNode(1, "div", null, "null", 0);')
+        })
+
+        it('Should keep a null children prop string', () => {
+            assert.equal(transform('<div children="null" />'), 'createVNode(1, "div", null, "null", 16);')
+        })
+
+        it('Should keep a null class name', () => {
+            assert.equal(transform('<div className="null" />'), 'createVNode(1, "div", "null");')
+            assert.equal(transform('<div className={`null`} />'), 'createVNode(1, "div", `null`);')
+        })
+
+        it('Should keep a null key', () => {
+            assert.equal(transform('<div key="null" />'), 'createVNode(1, "div", null, null, 1, null, "null");')
+            assert.equal(transform('<Foo key="null" />'), 'createComponentVNode(2, Foo, null, "null");')
+            assert.equal(transform('<Fragment key="null"><a/><b/></Fragment>'), 'createFragment([createVNode(1, "a"), createVNode(1, "b")], 4, "null");')
+        })
+
+        it('Should keep a null ref string', () => {
+            assert.equal(transform('<div ref={"null"} />'), 'createVNode(1, "div", null, null, 1, null, null, "null");')
+        })
+
+        it('Should leave out the null keyword', () => {
+            assert.equal(transform('<div className={null} key={null} ref={null} />'), 'createVNode(1, "div");')
+        })
+    })
+
     describe('children prop strings', () => {
         it('Should decode entities in an element children prop string', () => {
             const code = transform('<div children="a&amp;b" />')

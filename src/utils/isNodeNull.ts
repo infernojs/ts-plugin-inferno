@@ -1,4 +1,4 @@
-import {SyntaxKind} from "typescript";
+import {idText, SyntaxKind} from "typescript";
 
 export default function isNodeNull(node) {
     if (!node) {
@@ -16,5 +16,6 @@ export default function isNodeNull(node) {
         return true;
     }
 
-    return node.text === "null";
+    // Only an identifier can be named null, the text of a string like "null" is a value
+    return node.kind === SyntaxKind.Identifier && idText(node) === "null";
 }

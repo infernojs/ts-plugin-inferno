@@ -26,6 +26,35 @@ export const es5: ts.CompilerOptions = {target: ts.ScriptTarget.ES5, module: ts.
 export const es5CommonJS: ts.CompilerOptions = {target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS}
 export const es2015: ts.CompilerOptions = {target: ts.ScriptTarget.ES2015, module: ts.ModuleKind.ES2015}
 export const commonJS: ts.CompilerOptions = {module: ts.ModuleKind.CommonJS}
+// Compiles a snippet without imports and exports as a script, like TypeScript does by default, see transpileWarnings
+export const script: ts.CompilerOptions = {moduleDetection: ts.ModuleDetectionKind.Auto}
+
+const ES_MODULE_KINDS = [ts.ModuleKind.ES2015, ts.ModuleKind.ES2020, ts.ModuleKind.ES2022, ts.ModuleKind.ESNext, ts.ModuleKind.Preserve]
+
+// Whether the input has imports or exports, which make it a module whatever the moduleDetection option says
+function hasModuleSyntax(input: string, fileName: string): boolean {
+    return ts.isExternalModule(ts.createSourceFile(fileName, input, ts.ScriptTarget.ESNext))
+}
+
+// The empty export TypeScript appends to an ES module without imports and exports, before the source map comment
+const EMPTY_EXPORT = /\nexport \{\};(?=\n(\/\/# sourceMappingURL=[^\n]*\n?)?$)/
+
+/*
+ * Compiler options for a snippet. Most snippets have no imports or exports, which makes them scripts, and the plugin
+ * requires the helpers in a script. Snippets stand for the files of a project, which import from inferno, so with ES
+ * module output they are compiled as modules (like swc-plugin-inferno's tests parse them as modules) unless the test
+ * passes a moduleDetection option, e.g. `script`. Returns whether the module was forced, as TypeScript then appends
+ * `export {};`, which is not part of the snippet.
+ */
+function snippetOptions(input: string, compilerOptions: ts.CompilerOptions | undefined, fileName: string): {options: ts.CompilerOptions, forcedModule: boolean} {
+    const options = {...baseCompilerOptions, ...compilerOptions}
+    const forcedModule = options.moduleDetection === undefined && ES_MODULE_KINDS.includes(options.module) && !hasModuleSyntax(input, fileName)
+
+    if (forcedModule) {
+        options.moduleDetection = ts.ModuleDetectionKind.Force
+    }
+    return {options, forcedModule}
+}
 
 export interface TranspileResult {
     code: string
@@ -52,16 +81,18 @@ export function collectWarnings<T>(fn: () => T): {result: T, warnings: string[]}
 }
 
 function transpileWarnings(input: string, compilerOptions: ts.CompilerOptions | undefined, fileName: string, pluginOptions?: Options): {result: TranspileResult, warnings: string[]} {
+    const {options, forcedModule} = snippetOptions(input, compilerOptions, fileName)
+
     return collectWarnings(() => {
         const result = ts.transpileModule(input, {
             fileName,
             reportDiagnostics: true,
-            compilerOptions: {...baseCompilerOptions, ...compilerOptions},
+            compilerOptions: options,
             transformers: {after: [transformer(pluginOptions)]}
         })
 
         return {
-            code: result.outputText,
+            code: forcedModule ? result.outputText.replace(EMPTY_EXPORT, '') : result.outputText,
             map: result.sourceMapText,
             diagnostics: result.diagnostics ?? []
         }
@@ -152,7 +183,7 @@ export function expectNodeCanParse(code: string, inputType: 'module' | 'commonjs
     assert.equal(result.status, 0, `Expected valid ${inputType} code:\n${code}\n${result.stderr}`)
 }
 
-// Emits every .ts/.tsx file of an in-memory program with the given transformer, returns the output files by name
+// Emits every .ts/.tsx file (and .js/.jsx file with allowJs) of an in-memory program with the given transformer, returns the output files by name
 export function emitProgram(files: Record<string, string>, compilerOptions: ts.CompilerOptions, infernoTransformer = transformer()): Record<string, string> {
     const options: ts.CompilerOptions = {jsx: ts.JsxEmit.Preserve, target: ts.ScriptTarget.ESNext, noLib: true, types: [], newLine: ts.NewLineKind.LineFeed, ...compilerOptions}
     const host = ts.createCompilerHost(options)
@@ -167,7 +198,8 @@ export function emitProgram(files: Record<string, string>, compilerOptions: ts.C
         output[fileName] = text
     }
 
-    const program = ts.createProgram(Object.keys(files).filter(fileName => /\.tsx?$/.test(fileName)), options, host)
+    const rootFileName = options.allowJs ? /\.[jt]sx?$/ : /\.tsx?$/
+    const program = ts.createProgram(Object.keys(files).filter(fileName => rootFileName.test(fileName)), options, host)
 
     program.emit(undefined, undefined, undefined, undefined, {after: [infernoTransformer]})
 

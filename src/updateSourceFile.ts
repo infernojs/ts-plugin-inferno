@@ -12,6 +12,16 @@ export function updateSourceFile(sourceFile: ts.SourceFile, context: ts.Transfor
         return sourceFile
     }
 
+    /*
+     * A file without imports and exports is a script (unless moduleDetection is "force"), which TypeScript emits
+     * without a module wrapper in every format. Scripts cannot contain import declarations and an added one would turn
+     * the file into a module, so the helpers are required like in a CommonJS file, as babel-plugin-inferno does.
+     * CommonJS JavaScript files (allowJs) are no ES modules either.
+     */
+    if (!ts.isExternalModule(sourceFile)) {
+        return handleCjsModules(sourceFile, context, helpers)
+    }
+
     switch (getModuleFormat(sourceFile, context.getCompilerOptions())) {
         case ts.ModuleKind.CommonJS:
             return handleCjsModules(sourceFile, context, helpers)

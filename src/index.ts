@@ -344,19 +344,25 @@ export default (options?: Options) => {
             return vChildren
         }
 
-        function transformTextNodes(vChildren) {
-            context['createTextVNode'] = true
-
-            if (vChildren.elements) {
+        /*
+         * A single child is a string, or any expression that $HasTextChildren declares as text on a Fragment.
+         * JSX stays a vNode whatever the flag says; isJsxChild tells, as the JSX is already compiled here.
+         */
+        function transformTextNodes(vChildren, isJsxChild: boolean) {
+            if (vChildren.kind === SyntaxKind.ArrayLiteralExpression) {
                 return addCreateTextVNodeCalls(vChildren)
             }
-            if (vChildren.kind === SyntaxKind.StringLiteral) {
-                return createTextVNodeCall(vChildren)
+            if (isJsxChild) {
+                return vChildren
             }
+            return createTextVNodeCall(vChildren)
         }
 
-        // createTextVNode("text") maps to the JSX text in source maps, like the string literal it wraps
+        // createTextVNode("text") maps to the JSX text in source maps, like the string literal it wraps.
+        // The import is added with the first call, so that children without text do not import createTextVNode.
         function createTextVNodeCall(text: Expression) {
+            context['createTextVNode'] = true
+
             const call = factory.createCallExpression(getImportSpecifier('createTextVNode'), [], [text])
 
             return sourceMaps ? setSourceMapRange(call, getSourceMapRange(text)) : call
@@ -371,6 +377,9 @@ export default (options?: Options) => {
 
             if (hasChildren) {
                 if (
+                    // A $ChildFlag expression declares the shape of the children at runtime, they are passed as written
+                    typeof childFlags !== 'number' ||
+                    childFlags === ChildFlags.HasVNodeChildren ||
                     childFlags === ChildFlags.HasNonKeyedChildren ||
                     childFlags === ChildFlags.HasKeyedChildren ||
                     childFlags === ChildFlags.UnknownChildren ||
@@ -419,8 +428,8 @@ export default (options?: Options) => {
                 childFlags = ChildFlags.UnknownChildren
             }
 
-            if (vChildren && vChildren !== null && childrenResults.foundText) {
-                vChildren = transformTextNodes(vChildren)
+            if (vChildren && childrenResults.foundText) {
+                vChildren = transformTextNodes(vChildren, false)
             }
 
             vChildren = downlevelSpreadChildren(vChildren)
@@ -467,6 +476,10 @@ export default (options?: Options) => {
             let childFlags = ChildFlags.HasInvalidChildren
             let flags = vType.flags
             let overriddenChildren = null
+            // Whether a single child is JSX, which is compiled already and stays a vNode whatever the child flags say
+            let isJsxChild = childrenResults.foundVNode === true
+            // A single Fragment child that $HasTextChildren declares as text, which goes in an array like a static one
+            let singleTextChild = false
 
             if (vProps.hasReCreateFlag) {
                 flags = flags | VNodeFlags.ReCreate
@@ -507,11 +520,9 @@ export default (options?: Options) => {
                     if (vProps.propChildren.kind === SyntaxKind.StringLiteral) {
                         text = decodeEntities(handleWhiteSpace(vProps.propChildren.text))
                         if (text !== '') {
-                            if (vType.vNodeType !== TYPE_FRAGMENT) {
-                                childrenResults.foundText = true
-                                childrenResults.hasSingleChild = true
-                            }
-
+                            // Text like a JSX text child: a Fragment gets it as a text vNode in an array
+                            childrenResults.foundText = true
+                            childrenResults.hasSingleChild = true
                             vChildren = factory.createStringLiteral(text)
                         }
                     } else if (
@@ -526,8 +537,9 @@ export default (options?: Options) => {
 
                         // Compiled once with the other props, so JSX in it is not visited again
                         vChildren = vProps.childrenProp.initializer
+                        isJsxChild = isJsx(value)
                         // Only JSX is known to be a single vNode, other values are normalized at runtime like {expression} children
-                        childFlags = vType.vNodeType !== TYPE_FRAGMENT && (isJsx(value) || vProps.childrenKnown)
+                        childFlags = vType.vNodeType !== TYPE_FRAGMENT && (isJsxChild || vProps.childrenKnown)
                             ? ChildFlags.HasVNodeChildren
                             : ChildFlags.UnknownChildren
                     }
@@ -552,11 +564,17 @@ export default (options?: Options) => {
                             vType.vNodeType === TYPE_FRAGMENT
                                 ? ChildFlags.HasNonKeyedChildren
                                 : ChildFlags.HasTextChildren
+                        singleTextChild = vType.vNodeType === TYPE_FRAGMENT && !isNodeNull(vChildren) && vChildren.kind !== SyntaxKind.ArrayLiteralExpression
                     } else if (childrenResults.hasSingleChild) {
+                        // A static Fragment child is put in an array below, a dynamic one declared by $HasVNodeChildren is passed as is
                         childFlags =
-                            vType.vNodeType === TYPE_FRAGMENT
+                            vType.vNodeType === TYPE_FRAGMENT && !childrenResults.requiresNormalization
                                 ? ChildFlags.HasNonKeyedChildren
                                 : ChildFlags.HasVNodeChildren
+                    } else if (vProps.childrenKnown && !isNodeNull(vChildren) && vChildren.kind === SyntaxKind.ArrayLiteralExpression) {
+                        // Several children or a spread child that $HasVNodeChildren declares as vNodes. Without a child flag
+                        // Inferno would use HasInvalidChildren and render none of them.
+                        childFlags = ChildFlags.HasNonKeyedChildren
                     }
                 } else {
                     if (vProps.hasKeyedChildren) {
@@ -575,7 +593,7 @@ export default (options?: Options) => {
             }
 
             if (vChildren && childrenResults.foundText) {
-                vChildren = transformTextNodes(vChildren)
+                vChildren = transformTextNodes(vChildren, isJsxChild)
             }
 
             vChildren = downlevelSpreadChildren(vChildren)
@@ -642,8 +660,8 @@ export default (options?: Options) => {
                 context['createVNode'] = true
             } else if (vType.vNodeType === TYPE_FRAGMENT) {
                 if (
-                    !childrenResults.requiresNormalization &&
-                    childrenResults.hasSingleChild
+                    singleTextChild ||
+                    (!childrenResults.requiresNormalization && childrenResults.hasSingleChild)
                 ) {
                     vChildren = factory.createArrayLiteralExpression([vChildren])
                 }
@@ -825,7 +843,7 @@ export default (options?: Options) => {
                             case PROP_ChildFlag:
                                 flagProps = addFlagProp(flagProps, astProp)
                                 childrenKnown = true
-                                childFlags = getValue(initializer, visitor, factory)
+                                childFlags = getFlagsValue(astProp, propName)
                                 break
                             case PROP_VNODE_CHILDREN:
                                 flagProps = addFlagProp(flagProps, astProp)
@@ -862,7 +880,7 @@ export default (options?: Options) => {
                             case PROP_Flags:
                                 flagProps = addFlagProp(flagProps, astProp)
                                 // Replaces the flags of an element or a component, e.g. $Flags={VNodeFlags.InputElement}
-                                flagsOverride = getValue(initializer, visitor, factory)
+                                flagsOverride = getFlagsValue(astProp, propName)
                                 break
                             default:
                                 // The length check first avoids a lowercased copy of every other prop name
@@ -911,6 +929,19 @@ export default (options?: Options) => {
                 hasTextChildren: hasTextChildren,
                 flagProps: flagProps,
             }
+        }
+
+        /*
+         * The value of $ChildFlag or $Flags, which is passed as the flags. A valueless flag would pass true, which
+         * Inferno reads as flag 1: HasInvalidChildren drops the children, HtmlElement turns a component into an element.
+         */
+        function getFlagsValue(astProp: JsxAttribute, propName: string) {
+            const initializer = astProp.initializer
+
+            if (!initializer || (initializer.kind === SyntaxKind.JsxExpression && !initializer.expression)) {
+                throw createError(astProp, 'Please provide an explicit ' + propName + ' value, e.g. ' + propName + '={flags}.')
+            }
+            return getValue(initializer, visitor, factory)
         }
 
         // The array is created with the first flag, as most elements have none
@@ -1010,6 +1041,8 @@ export default (options?: Options) => {
             let parentCanBeKeyed = false
             let requiresNormalization = false
             let foundText = false
+            // Whether a child is JSX, only read when there is a single child
+            let foundVNode = false
             let hasSpreadChild = false
 
             for (let i = 0; i < astChildren.length; i++) {
@@ -1019,9 +1052,12 @@ export default (options?: Options) => {
                 if (child.kind === SyntaxKind.JsxExpression) {
                     requiresNormalization = true
                     hasSpreadChild = hasSpreadChild || child.dotDotDotToken !== undefined
-                } else if (child.kind === SyntaxKind.JsxText && vNode != null) {
+                    foundVNode = foundVNode || (child.expression !== undefined && child.dotDotDotToken === undefined && isJsx(child.expression))
+                } else if (child.kind === SyntaxKind.JsxText) {
                     // The visitor drops text that collapses to nothing, whitespace that is kept is text as well
-                    foundText = true
+                    foundText = foundText || vNode != null
+                } else {
+                    foundVNode = true
                 }
 
                 if (vNode != null) {
@@ -1061,6 +1097,7 @@ export default (options?: Options) => {
                     ? children[0]
                     : factory.createArrayLiteralExpression(children),
                 foundText: foundText,
+                foundVNode: foundVNode,
                 parentCanBeNonKeyed:
                     !hasSingleChild &&
                     !parentCanBeKeyed &&

@@ -2,7 +2,7 @@ import {describe, it} from 'node:test'
 import * as assert from 'node:assert/strict'
 import * as ts from 'typescript'
 import transformer from '../../src'
-import {emitProgram, expectNodeCanParse, transform, transformWith, commonJS, es2015, es5, es5CommonJS} from './helpers'
+import {emitProgram, expectNodeCanParse, transform, transformWith, commonJS, es2015, es5, es5CommonJS, script} from './helpers'
 
 /*
  * The plugin has no options, the helpers are imported or required based on the module kind of the
@@ -312,13 +312,52 @@ describe('Options and imports', function () {
 
     /*
      * Cases from swc-plugin-inferno tests/babel_plugin_inferno/options_imports.rs (babel-plugin-inferno's sourceType
-     * tests). A file without imports and exports is a script, unless moduleDetection is "force". Scripts cannot contain
-     * import declarations, so babel-plugin-inferno requires the helpers there; with ES module output this plugin does
-     * not yet, see tests/known-bugs/options-imports.test.ts.
+     * tests). A file without imports and exports is a script, unless moduleDetection is "force", and TypeScript emits it
+     * as one in every module format. Scripts cannot contain import declarations, so the helpers are required there like
+     * babel-plugin-inferno and swc-plugin-inferno do: an added import would turn the emitted script into a module, whose
+     * top-level declarations are no longer globals and which a classic <script> fails to parse. The snippets of the
+     * other tests are compiled as modules, `script` compiles them with TypeScript's default module detection.
      */
     describe('script files', function () {
         it('Should use a top-level createVNode function instead of importing in a script', function () {
-            assert.equal(transformWith('function createVNode(){}\nconst a = <div/>;'), 'function createVNode() { }\nconst a = createVNode(1, "div");')
+            assert.equal(transformWith('function createVNode(){}\nconst a = <div/>;', script), 'function createVNode() { }\nconst a = createVNode(1, "div");')
+        })
+
+        it('Should require helpers in a file parsed as script by sourceType unambiguous', function () {
+            const code = transformWith('const a = require("x");\nconst b = <div/>;', script)
+
+            assert.equal(code, 'var $inferno = require("inferno");\nvar createVNode = $inferno.createVNode;\nconst a = require("x");\nconst b = createVNode(1, "div");')
+            expectNodeCanParse(code, 'commonjs')
+        })
+
+        it('Should require every used helper in a script', function () {
+            const code = transformWith('const a = <div><Foo {...p}/>text<></></div>;', script)
+
+            assert.equal(code, 'var $inferno = require("inferno");\nvar normalizeProps = $inferno.normalizeProps;\nvar createTextVNode = $inferno.createTextVNode;\nvar createComponentVNode = $inferno.createComponentVNode;\nvar createVNode = $inferno.createVNode;\nvar createFragment = $inferno.createFragment;\nconst a = createVNode(1, "div", null, [normalizeProps(createComponentVNode(2, Foo, Object.assign({}, p))), createTextVNode("text"), createFragment()], 4);')
+            expectNodeCanParse(code, 'commonjs')
+        })
+
+        it('Should not require helpers that are already declared in a script', function () {
+            assert.equal(transformWith('function createVNode() {}\nconst a = <div><Foo/></div>;', script), 'var $inferno = require("inferno");\nvar createComponentVNode = $inferno.createComponentVNode;\nfunction createVNode() { }\nconst a = createVNode(1, "div", null, createComponentVNode(2, Foo), 2);')
+        })
+
+        it('Should require helpers in a script with module preserve', function () {
+            assert.equal(transformWith('const b = <div/>;', {...script, module: ts.ModuleKind.Preserve}), 'var $inferno = require("inferno");\nvar createVNode = $inferno.createVNode;\nconst b = createVNode(1, "div");')
+        })
+
+        it('Should require helpers in a script for ES2015 modules', function () {
+            assert.equal(transformWith('const b = <div/>;', {...es2015, ...script}), 'var $inferno = require("inferno");\nvar createVNode = $inferno.createVNode;\nconst b = createVNode(1, "div");')
+        })
+
+        it('Should require helpers in a CommonJS JavaScript file compiled to ES modules', function () {
+            const output = emitProgram({'/a.jsx': 'const x = require("x");\nmodule.exports = <div/>;\n'}, {allowJs: true, module: ts.ModuleKind.ESNext, outDir: '/out'})
+
+            assert.equal(output['/out/a.jsx'], '"use strict";\nvar $inferno = require("inferno");\nvar createVNode = $inferno.createVNode;\nconst x = require("x");\nmodule.exports = createVNode(1, "div");\n')
+            expectNodeCanParse(output['/out/a.jsx'], 'commonjs')
+        })
+
+        it('Should import helpers in a file with an import', function () {
+            assert.equal(transformWith('import x from "x";\nconst b = <div a={x}/>;', script), 'import { createVNode } from "inferno";\nimport x from "x";\nconst b = createVNode(1, "div", null, null, 1, { "a": x });')
         })
 
         it('Should import helpers in a file that moduleDetection forces to be a module', function () {
@@ -393,8 +432,9 @@ describe('Options and imports', function () {
             assert.equal(transformWith('"use client";\nexport const a = <div/>;'), '"use client";\nimport { createVNode } from "inferno";\nexport const a = createVNode(1, "div");')
         })
 
-        it('Should import helpers after the "use strict" prologue emitted by alwaysStrict', function () {
-            assert.equal(transformWith('const a = <div/>;', {alwaysStrict: true}), '"use strict";\nimport { createVNode } from "inferno";\nconst a = createVNode(1, "div");')
+        // ES modules are strict without the directive, TypeScript only emits it for scripts
+        it('Should require helpers after the "use strict" prologue emitted by alwaysStrict in a script', function () {
+            assert.equal(transformWith('const a = <div/>;', {...script, alwaysStrict: true}), '"use strict";\nvar $inferno = require("inferno");\nvar createVNode = $inferno.createVNode;\nconst a = createVNode(1, "div");')
         })
     })
 

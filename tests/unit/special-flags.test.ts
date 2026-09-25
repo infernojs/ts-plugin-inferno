@@ -1,6 +1,6 @@
 import {describe, it} from 'node:test'
 import * as assert from 'node:assert/strict'
-import {transform} from './helpers'
+import {expectThrows, transform} from './helpers'
 
 describe('Special flags', () => {
     describe('flag precedence', () => {
@@ -79,6 +79,49 @@ describe('Special flags', () => {
 
         it('Should keep $HasVNodeChildren with a spread', () => {
             assert.equal(transform('<div {...p} $HasVNodeChildren>{a}</div>'), 'normalizeProps(createVNode(1, "div", null, a, 2, Object.assign({}, p)));')
+        })
+    })
+
+    // Without a child flag Inferno would use HasInvalidChildren, which renders none of the children
+    describe('several children declared as vNodes', () => {
+        it('Should pass several dynamic children as non keyed vNodes', () => {
+            assert.equal(transform('<div $HasVNodeChildren>{a}{b}</div>'), 'createVNode(1, "div", null, [a, b], 4);')
+        })
+
+        it('Should pass a dynamic child next to whitespace as non keyed vNodes', () => {
+            assert.equal(transform('<div $HasVNodeChildren>{a} </div>'), 'createVNode(1, "div", null, [a, createTextVNode(" ")], 4);')
+        })
+
+        it('Should pass a spread child as non keyed vNodes', () => {
+            assert.equal(transform('<div $HasVNodeChildren>{...a}</div>'), 'createVNode(1, "div", null, [...a], 4);')
+        })
+
+        it('Should pass an array children prop as non keyed vNodes', () => {
+            assert.equal(transform('<div $HasVNodeChildren children={[a, b]} />'), 'createVNode(1, "div", null, [a, b], 4);')
+        })
+
+        it('Should keep a single dynamic child as a vNode', () => {
+            assert.equal(transform('<div $HasVNodeChildren>{a}</div>'), 'createVNode(1, "div", null, a, 2);')
+        })
+    })
+
+    // A valueless flag was passed as true, which Inferno reads as flag 1: HasInvalidChildren drops the children and
+    // HtmlElement turns a component into an element
+    describe('valueless flags', () => {
+        it('Should reject a valueless $ChildFlag', () => {
+            expectThrows(() => transform('<div $ChildFlag>{a}</div>'), 'file.tsx(1,6): Please provide an explicit $ChildFlag value, e.g. $ChildFlag={flags}.')
+        })
+
+        it('Should reject a valueless $Flags', () => {
+            expectThrows(() => transform('<Foo $Flags />'), 'file.tsx(1,6): Please provide an explicit $Flags value, e.g. $Flags={flags}.')
+        })
+
+        it('Should reject an empty $ChildFlag expression', () => {
+            expectThrows(() => transform('<div $ChildFlag={/* flags */}>{a}</div>'), 'Please provide an explicit $ChildFlag value')
+        })
+
+        it('Should reject an empty $Flags expression', () => {
+            expectThrows(() => transform('<div $Flags={}/>'), 'Please provide an explicit $Flags value')
         })
     })
 

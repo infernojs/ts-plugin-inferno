@@ -118,10 +118,8 @@ describe('Useless flags', () => {
         for (const flag of CHILD_FLAGS) {
             for (const shape of shapes) {
                 const input = shape.replace('FLAG', flag)
-                // The transform crashes after the warning, see tests/known-bugs/fragments.test.ts
-                const todo = flag === '$HasTextChildren' && /^<(Inferno\.)?Fragment FLAG><a\/><\//.test(shape) ? 'crashes, see tests/known-bugs/fragments.test.ts' : undefined
 
-                it('Should warn about ' + JSON.stringify(input), {todo}, () => {
+                it('Should warn about ' + JSON.stringify(input), () => {
                     assert.deepEqual(messages(input), [flagName(flag) + KNOWN])
                 })
             }
@@ -402,14 +400,14 @@ describe('Useless flags', () => {
 
                 return sourceFile => ts.visitNode(sourceFile, visit) as ts.SourceFile
             }
-            const result = collectWarnings(() => ts.transpileModule('const el = makeJSX();', {
+            const result = collectWarnings(() => ts.transpileModule('export const el = makeJSX();', {
                 fileName: 'file.tsx',
                 compilerOptions: {jsx: ts.JsxEmit.Preserve, target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext, ignoreDeprecations: '6.0', alwaysStrict: false},
                 transformers: {before: [makeJSX], after: [transformer()]}
             }).outputText)
 
             assert.deepEqual(result.warnings, ['ts-plugin-inferno: file.tsx: $HasTextChildren' + KNOWN])
-            assert.equal(stripInfernoImport(result.result), 'const el = createVNode(1, "div", null, "text", 16);\n')
+            assert.equal(stripInfernoImport(result.result), 'export const el = createVNode(1, "div", null, "text", 16);\n')
         })
     })
 })

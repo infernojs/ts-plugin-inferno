@@ -3,6 +3,7 @@ import {
     createProgram,
     getDefaultCompilerOptions,
     JsxEmit,
+    ModuleDetectionKind,
     ModuleKind,
     ModuleResolutionKind,
     NewLineKind,
@@ -32,9 +33,13 @@ const config = {
     newLine: NewLineKind.LineFeed
 }
 
-// Target is ES2015 (same as ES6)
+/*
+ * Target is ES2015 (same as ES6). The cases stand for files of a project, which import from inferno, so they are
+ * compiled as ES modules: most have no imports or exports, which would make them scripts that require the helpers.
+ */
 const configES6 = {
     ...getDefaultCompilerOptions(),
+    moduleDetection: ModuleDetectionKind.Force,
     experimentalDecorators: true,
     jsx: JsxEmit.Preserve,
     strict: false,
@@ -78,8 +83,12 @@ let failedTestsEs6 = []
 mkdirpSync(resolve(__dirname, 'temp/'))
 mkdirpSync(resolve(__dirname, 'tempES6/'))
 
+// The empty export TypeScript appends to an ES module without imports and exports, which is not part of the case
+const EMPTY_EXPORT = /\nexport \{\};\n$/
+
 function compare(target?: string) {
     return (filePath: string, output: string) => {
+        output = output.replace(EMPTY_EXPORT, '\n')
         const fileBasename = basename(filePath)
         const referenceFilePath = resolve(`${__dirname}`, `references${target ?? ''}/` + fileBasename)
 

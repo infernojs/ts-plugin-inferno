@@ -58,13 +58,13 @@ describe('JSX positions', function () {
 
                 return sourceFile => ts.visitNode(sourceFile, visit) as ts.SourceFile
             }
-            const code = ts.transpileModule('const el = makeJSX();', {
+            const code = ts.transpileModule('export const el = makeJSX();', {
                 fileName: 'file.tsx',
                 compilerOptions: {jsx: ts.JsxEmit.Preserve, target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext, ignoreDeprecations: '6.0', alwaysStrict: false},
                 transformers: {before: [makeJSX], after: [transformer()]}
             }).outputText
 
-            assert.equal(stripInfernoImport(code), 'const el = createVNode(1, "div", null, "text", 16, { "title": "generated" });\n')
+            assert.equal(stripInfernoImport(code), 'export const el = createVNode(1, "div", null, "text", 16, { "title": "generated" });\n')
         })
     })
 })

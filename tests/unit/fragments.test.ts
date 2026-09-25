@@ -54,6 +54,63 @@ describe('Fragments', () => {
         it('Should not import createTextVNode for a null children prop', () => {
             assert.equal(transformWith('<Fragment $HasTextChildren children={null} />'), 'import { createFragment } from "inferno";\ncreateFragment();')
         })
+
+        it('Should compile a dynamic child into a text vNode', () => {
+            assert.equal(transformWith('<Fragment $HasTextChildren>{x}</Fragment>'), 'import { createFragment, createTextVNode } from "inferno";\ncreateFragment([createTextVNode(x)], 4);')
+        })
+
+        it('Should compile a dynamic child into a text vNode in a keyed Fragment', () => {
+            assert.equal(transform('<Fragment $HasTextChildren key="k">{x}</Fragment>'), 'createFragment([createTextVNode(x)], 4, "k");')
+        })
+
+        it('Should put a string expression child in an array', () => {
+            assert.equal(transform('<Fragment $HasTextChildren>{"text"}</Fragment>'), 'createFragment([createTextVNode("text")], 4);')
+        })
+
+        it('Should compile a children prop expression into a text vNode', () => {
+            assert.equal(transform('<Fragment $HasTextChildren children={x} />'), 'createFragment([createTextVNode(x)], 4);')
+        })
+
+        it('Should put a children prop string in an array', () => {
+            assert.equal(transform('<Fragment $HasTextChildren children="text" />'), 'createFragment([createTextVNode("text")], 4);')
+        })
+
+        it('Should evaluate an overridden children prop once', () => {
+            assert.equal(transform('<Fragment $HasTextChildren children={f()}>{x}</Fragment>'), 'createFragment([(f(), createTextVNode(x))], 4);')
+        })
+
+        it('Should keep an element child as a vNode', () => {
+            assert.equal(transformWith('<Fragment $HasTextChildren><a/></Fragment>'), 'import { createFragment, createVNode } from "inferno";\ncreateFragment([createVNode(1, "a")], 4);')
+        })
+
+        it('Should keep an element expression child as a vNode', () => {
+            assert.equal(transform('<Fragment $HasTextChildren>{<a/>}</Fragment>'), 'createFragment([createVNode(1, "a")], 4);')
+        })
+
+        it('Should keep an element child next to an empty expression as a vNode', () => {
+            assert.equal(transform('<Fragment $HasTextChildren>{/* c */}<a/></Fragment>'), 'createFragment([createVNode(1, "a")], 4);')
+        })
+
+        it('Should keep an element children prop as a vNode', () => {
+            assert.equal(transform('<Fragment $HasTextChildren children=<a/> />'), 'createFragment([createVNode(1, "a")], 4);')
+        })
+
+        it('Should not import createTextVNode for several dynamic children declared as text', () => {
+            assert.equal(transformWith('<Fragment $HasTextChildren>{x}{y}</Fragment>'), 'import { createFragment } from "inferno";\ncreateFragment([x, y], 4);')
+        })
+
+        it('Should keep a nested Fragment child as a vNode', () => {
+            assert.equal(transform('<Fragment $HasTextChildren><></></Fragment>'), 'createFragment([createFragment()], 4);')
+        })
+
+        it('Should keep a Fragment expression child as a vNode', () => {
+            assert.equal(transform('<Fragment $HasTextChildren>{<>t</>}</Fragment>'), 'createFragment([createFragment([createTextVNode("t")], 4)], 4);')
+        })
+
+        // A spread child is several children, which are not wrapped in text vNodes
+        it('Should keep a spread child as it is', () => {
+            assert.equal(transform('<Fragment $HasTextChildren>{...x}</Fragment>'), 'createFragment([...x], 4);')
+        })
     })
 
     describe('$HasVNodeChildren', () => {
@@ -64,11 +121,90 @@ describe('Fragments', () => {
         it('Should compile static text into a text vNode', () => {
             assert.equal(transform('<Fragment $HasVNodeChildren>text</Fragment>'), 'createFragment([createTextVNode("text")], 4);')
         })
+
+        it('Should pass a dynamic child as a single vNode', () => {
+            assert.equal(transform('<Fragment $HasVNodeChildren>{x}</Fragment>'), 'createFragment(x, 2);')
+        })
+
+        it('Should pass a dynamic child as a single vNode in a keyed Fragment', () => {
+            assert.equal(transform('<Fragment $HasVNodeChildren key="k">{x}</Fragment>'), 'createFragment(x, 2, "k");')
+        })
+
+        it('Should pass an element expression child as a single vNode', () => {
+            assert.equal(transform('<Fragment $HasVNodeChildren>{<a/>}</Fragment>'), 'createFragment(createVNode(1, "a"), 2);')
+        })
+
+        it('Should pass an element child next to an empty expression as a single vNode', () => {
+            assert.equal(transform('<Fragment $HasVNodeChildren>{/* c */}<a/></Fragment>'), 'createFragment(createVNode(1, "a"), 2);')
+        })
+
+        it('Should evaluate an overridden children prop before a dynamic child', () => {
+            assert.equal(transform('<Fragment $HasVNodeChildren children={f()}>{x}</Fragment>'), 'createFragment((f(), x), 2);')
+        })
+
+        // Without a child flag Inferno would use HasInvalidChildren, which renders none of the children
+        it('Should pass several dynamic children as non keyed vNodes', () => {
+            assert.equal(transform('<Fragment $HasVNodeChildren>{x}{y}</Fragment>'), 'createFragment([x, y], 4);')
+        })
+
+        it('Should pass a spread child as non keyed vNodes', () => {
+            assert.equal(transform('<Fragment $HasVNodeChildren>{...x}</Fragment>'), 'createFragment([...x], 4);')
+        })
+    })
+
+    /*
+     * $ChildFlag declares the shape of the children at runtime and createFragment uses the flag as it is, so a dynamic
+     * child is passed as written like on elements: in an array it would only work with UnknownChildren.
+     */
+    describe('$ChildFlag', () => {
+        it('Should pass a dynamic child as it is', () => {
+            assert.equal(transform('<Fragment $ChildFlag={x}>{a}</Fragment>'), 'createFragment(a, x);')
+        })
+
+        it('Should pass a dynamic child as it is in a keyed Fragment', () => {
+            assert.equal(transform('<Fragment $ChildFlag={x} key="k">{a}</Fragment>'), 'createFragment(a, x, "k");')
+        })
+
+        it('Should pass a children prop expression as it is', () => {
+            assert.equal(transform('<Fragment $ChildFlag={x} children={a} />'), 'createFragment(a, x);')
+        })
+
+        it('Should pass several dynamic children in an array', () => {
+            assert.equal(transform('<Fragment $ChildFlag={x}>{a}{b}</Fragment>'), 'createFragment([a, b], x);')
+        })
     })
 
     describe('string children prop', () => {
         it('Should create an empty Fragment for an empty children prop string', () => {
             assert.equal(transformWith('<Fragment children="" />'), 'import { createFragment } from "inferno";\ncreateFragment();')
+        })
+
+        it('Should compile a children prop string into a text vNode', () => {
+            assert.equal(transformWith('<Fragment children="text" />'), 'import { createFragment, createTextVNode } from "inferno";\ncreateFragment([createTextVNode("text")], 4);')
+        })
+
+        it('Should compile a children prop string into a text vNode in a keyed Fragment', () => {
+            assert.equal(transform('<Fragment children="text" key="k" />'), 'createFragment([createTextVNode("text")], 4, "k");')
+        })
+
+        it('Should compile a children prop string into a text vNode in a React.Fragment', () => {
+            assert.equal(transform('<React.Fragment children="text" />'), 'createFragment([createTextVNode("text")], 4);')
+        })
+
+        it('Should keep single-line whitespace in a children prop string', () => {
+            assert.equal(transform('<Fragment children="  " />'), 'createFragment([createTextVNode("  ")], 4);')
+        })
+
+        it('Should put a children prop string in an array with $HasNonKeyedChildren', () => {
+            assert.equal(transform('<Fragment $HasNonKeyedChildren children="text" />'), 'createFragment([createTextVNode("text")], 4);')
+        })
+
+        it('Should put a children prop string in an array with $HasKeyedChildren', () => {
+            assert.equal(transform('<Fragment $HasKeyedChildren children="text" />'), 'createFragment([createTextVNode("text")], 8);')
+        })
+
+        it('Should compile a children prop string into a text vNode with $HasVNodeChildren', () => {
+            assert.equal(transform('<Fragment $HasVNodeChildren children="text" />'), 'createFragment([createTextVNode("text")], 4);')
         })
     })
 
@@ -104,8 +240,5 @@ describe('Fragments', () => {
             assert.equal(transform('<React.Fragment a={1}>x</React.Fragment>'), 'createFragment([createTextVNode("x")], 4);')
         })
 
-        it('Should wrap a dynamic child in an array when $ChildFlag is an expression', () => {
-            assert.equal(transform('<Fragment $ChildFlag={x}>{a}</Fragment>'), 'createFragment([a], x);')
-        })
     })
 })
