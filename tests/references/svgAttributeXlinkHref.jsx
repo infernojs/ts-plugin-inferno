@@ -1,3 +1,3 @@
 var $inferno = require("inferno");
-var createVNode = $inferno.createVNode;
-createVNode(32, "svg", null, createVNode(32, "use", null, null, 1, { "xlink:href": "#tester" }), 2);
+var newVNode = $inferno.newVNode;
+newVNode(72, "svg", null, newVNode(80, "use", null, null, { "xlink:href": "#tester" }));

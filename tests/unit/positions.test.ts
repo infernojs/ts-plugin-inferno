@@ -7,35 +7,35 @@ import {stripInfernoImport, transform} from './helpers'
 describe('JSX positions', function () {
     describe('expression positions', function () {
         it('Should compile JSX in default parameters', function () {
-            assert.equal(transform('function F({x = <b/>}) { return <div>{x}</div>; }'), 'function F({ x = createVNode(1, "b") }) { return createVNode(1, "div", null, x, 0); }')
+            assert.equal(transform('function F({x = <b/>}) { return <div>{x}</div>; }'), 'function F({ x = newVNode(17, "b") }) { return newVNode(1, "div", null, x); }')
         })
 
         it('Should compile JSX in static class fields', function () {
-            assert.equal(transform('class C { static el = <i/>; }'), 'class C {\n    static el = createVNode(1, "i");\n}')
+            assert.equal(transform('class C { static el = <i/>; }'), 'class C {\n    static el = newVNode(17, "i");\n}')
         })
 
         it('Should compile JSX in a class field arrow function', function () {
-            assert.equal(transform('class A { render = () => <this.subComponent />; }'), 'class A {\n    render = () => createComponentVNode(2, this.subComponent);\n}')
+            assert.equal(transform('class A { render = () => <this.subComponent />; }'), 'class A {\n    render = () => newComponentVNode(0, this.subComponent);\n}')
         })
 
         it('Should compile JSX in a default export', function () {
-            assert.equal(transform('export default () => <div/>;'), 'export default () => createVNode(1, "div");')
+            assert.equal(transform('export default () => <div/>;'), 'export default () => newVNode(17, "div");')
         })
 
         it('Should compile JSX in a named export', function () {
-            assert.equal(transform('export const A = () => <div/>;'), 'export const A = () => createVNode(1, "div");')
+            assert.equal(transform('export const A = () => <div/>;'), 'export const A = () => newVNode(17, "div");')
         })
 
         it('Should compile JSX inside higher-order component calls', function () {
-            assert.equal(transform('const C = memo(forwardRef((props, ref) => <div ref={ref}/>));'), 'const C = memo(forwardRef((props, ref) => createVNode(1, "div", null, null, 1, null, null, ref)));')
+            assert.equal(transform('const C = memo(forwardRef((props, ref) => <div ref={ref}/>));'), 'const C = memo(forwardRef((props, ref) => newVNode(17, "div", null, null, null, null, ref)));')
         })
 
         it('Should compile several top-level JSX expression statements', function () {
-            assert.equal(transform('<div>{a}</div>;\n<span>{b}</span>'), 'createVNode(1, "div", null, a, 0);\ncreateVNode(1, "span", null, b, 0);')
+            assert.equal(transform('<div>{a}</div>;\n<span>{b}</span>'), 'newVNode(1, "div", null, a);\nnewVNode(1, "span", null, b);')
         })
 
         it('Should compile JSX used as a component variable', function () {
-            assert.equal(transform('let Foo = <div />;\n<Foo />;'), 'let Foo = createVNode(1, "div");\ncreateComponentVNode(2, Foo);')
+            assert.equal(transform('let Foo = <div />;\n<Foo />;'), 'let Foo = newVNode(17, "div");\nnewComponentVNode(0, Foo);')
         })
     })
 
@@ -64,7 +64,7 @@ describe('JSX positions', function () {
                 transformers: {before: [makeJSX], after: [transformer()]}
             }).outputText
 
-            assert.equal(stripInfernoImport(code), 'export const el = createVNode(1, "div", null, "text", 16, { "title": "generated" });\n')
+            assert.equal(stripInfernoImport(code), 'export const el = newVNode(3, "div", null, "text", { "title": "generated" });\n')
         })
     })
 })

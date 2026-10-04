@@ -1,4 +1,4 @@
 var $inferno = require("inferno");
+var newVNode = $inferno.newVNode;
 var normalizeProps = $inferno.normalizeProps;
-var createVNode = $inferno.createVNode;
-normalizeProps(createVNode(1, "div", null, null, 1, Object.assign({}, props, other, { "foo": "bar", "foo2": "bar2" }, more, { "foo3": "bar3" })));
+normalizeProps(newVNode(17, "div", null, null, Object.assign({}, props, other, { "foo": "bar", "foo2": "bar2" }, more, { "foo3": "bar3" })));

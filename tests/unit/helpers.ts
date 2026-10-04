@@ -229,10 +229,12 @@ export function tscText(input: string): string {
 export function run(input: string, scope: Record<string, unknown> = {}): any {
     const code = transform(input).replace(/;$/, '')
     const factories = {
+        newVNode: (flags, type, className, children, props, key, ref) => ({flags, type, className, children, props, key, ref}),
         createVNode: (flags, type, className, children, childFlags, props, key, ref) => ({flags, type, className, children, childFlags, props, key, ref}),
-        createComponentVNode: (flags, type, props, key, ref) => ({flags, type, props, key, ref}),
+        newFragment: (flags, children, key) => ({flags, children, key}),
         createFragment: (children, childFlags, key) => ({children, childFlags, key}),
-        createTextVNode: (text, key) => ({text, key}),
+        newComponentVNode: (flags, type, props, key, ref) => ({flags, type, props, key, ref}),
+        newTextVNode: (text, key) => ({text, key}),
         normalizeProps: vNode => vNode
     }
     const names = [...Object.keys(factories), ...Object.keys(scope)]

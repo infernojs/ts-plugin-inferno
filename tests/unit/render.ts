@@ -171,10 +171,12 @@ const inferno = require('inferno')
 export function evaluate(input: string, scope: Record<string, unknown> = {}): any {
     const code = transform(input).replace(/;$/, '')
     const factories = {
+        newVNode: inferno.newVNode,
         createVNode: inferno.createVNode,
-        createComponentVNode: inferno.createComponentVNode,
+        newFragment: inferno.newFragment,
         createFragment: inferno.createFragment,
-        createTextVNode: inferno.createTextVNode,
+        newComponentVNode: inferno.newComponentVNode,
+        newTextVNode: inferno.newTextVNode,
         normalizeProps: inferno.normalizeProps
     }
     const names = [...Object.keys(factories), ...Object.keys(scope)]

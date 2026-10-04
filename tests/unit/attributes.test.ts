@@ -15,43 +15,43 @@ function spy(returnValue?: unknown) {
 describe('Attributes', () => {
     describe('verbatim attributes', () => {
         it('Should keep data- and aria- attributes', () => {
-            assert.equal(transform('<div data-foo="1" aria-label="x" />'), 'createVNode(1, "div", null, null, 1, { "data-foo": "1", "aria-label": "x" });')
+            assert.equal(transform('<div data-foo="1" aria-label="x" />'), 'newVNode(17, "div", null, null, { "data-foo": "1", "aria-label": "x" });')
         })
 
         it('Should keep multi-hyphen data attributes', () => {
-            assert.equal(transform('<div data-foo-bar={x} />'), 'createVNode(1, "div", null, null, 1, { "data-foo-bar": x });')
+            assert.equal(transform('<div data-foo-bar={x} />'), 'newVNode(17, "div", null, null, { "data-foo-bar": x });')
         })
 
         it('Should keep the casing of data attributes', () => {
             assert.equal(
                 transform('<div data-fooBar="true" aria="hello" on="tap:x" oncustomevent={f} />'),
-                'createVNode(1, "div", null, null, 1, { "data-fooBar": "true", "aria": "hello", "on": "tap:x", "oncustomevent": f });'
+                'newVNode(17, "div", null, null, { "data-fooBar": "true", "aria": "hello", "on": "tap:x", "oncustomevent": f });'
             )
         })
 
         it('Should keep namespaced attributes', () => {
-            assert.equal(transform('<div xml:lang="en" />'), 'createVNode(1, "div", null, null, 1, { "xml:lang": "en" });')
+            assert.equal(transform('<div xml:lang="en" />'), 'newVNode(17, "div", null, null, { "xml:lang": "en" });')
         })
 
         it('Should keep namespaced attributes with hyphens', () => {
-            assert.equal(transform('<div foo:bar-baz="1" />'), 'createVNode(1, "div", null, null, 1, { "foo:bar-baz": "1" });')
+            assert.equal(transform('<div foo:bar-baz="1" />'), 'newVNode(17, "div", null, null, { "foo:bar-baz": "1" });')
         })
 
         it('Should keep xmlns:xlink on svg', () => {
             assert.equal(
                 transform('<svg viewBox="0 0 10 10" xmlns:xlink="http://www.w3.org/1999/xlink"><g><path d="M0"/></g></svg>'),
-                'createVNode(32, "svg", null, createVNode(32, "g", null, createVNode(32, "path", null, null, 1, { "d": "M0" }), 2), 2, { "viewBox": "0 0 10 10", "xmlns:xlink": "http://www.w3.org/1999/xlink" });'
+                'newVNode(72, "svg", null, newVNode(72, "g", null, newVNode(80, "path", null, null, { "d": "M0" })), { "viewBox": "0 0 10 10", "xmlns:xlink": "http://www.w3.org/1999/xlink" });'
             )
         })
 
         it('Should keep an uppercase CHILDREN attribute as a prop', () => {
-            assert.equal(transform('<div CHILDREN="5" />'), 'createVNode(1, "div", null, null, 1, { "CHILDREN": "5" });')
+            assert.equal(transform('<div CHILDREN="5" />'), 'newVNode(17, "div", null, null, { "CHILDREN": "5" });')
         })
 
         it('Should keep the is attribute next to mapped attributes', () => {
             assert.equal(
                 transform('<div is="custom-element" htmlFor="x" className="y" />'),
-                'createVNode(1, "div", "y", null, 1, { "is": "custom-element", "for": "x" });'
+                'newVNode(17, "div", "y", null, { "is": "custom-element", "for": "x" });'
             )
         })
     })
@@ -60,12 +60,12 @@ describe('Attributes', () => {
         it('Should quote reserved words and hyphenated names on components', () => {
             assert.equal(
                 transform('<F aaa new const var default foo-bar/>'),
-                'createComponentVNode(2, F, { "aaa": true, "new": true, "const": true, "var": true, "default": true, "foo-bar": true });'
+                'newComponentVNode(0, F, { "aaa": true, "new": true, "const": true, "var": true, "default": true, "foo-bar": true });'
             )
         })
 
         it('Should quote reserved words on elements', () => {
-            assert.equal(transform('<div new const="1" />'), 'createVNode(1, "div", null, null, 1, { "new": true, "const": "1" });')
+            assert.equal(transform('<div new const="1" />'), 'newVNode(17, "div", null, null, { "new": true, "const": "1" });')
         })
     })
 
@@ -73,63 +73,63 @@ describe('Attributes', () => {
         it('Should compile valueless attributes to true', () => {
             assert.equal(
                 transform('<input value={1} checked={c} defaultValue="x" defaultChecked />'),
-                'createVNode(64, "input", null, null, 1, { "value": 1, "checked": c, "defaultValue": "x", "defaultChecked": true });'
+                'newVNode(528, "input", null, null, { "value": 1, "checked": c, "defaultValue": "x", "defaultChecked": true });'
             )
         })
 
         it('Should keep a style object', () => {
-            assert.equal(transform('<div style={{color: "red"}} />'), 'createVNode(1, "div", null, null, 1, { "style": { color: "red" } });')
+            assert.equal(transform('<div style={{color: "red"}} />'), 'newVNode(17, "div", null, null, { "style": { color: "red" } });')
         })
 
         it('Should keep a style string', () => {
-            assert.equal(transform('<div style="color: red" />'), 'createVNode(1, "div", null, null, 1, { "style": "color: red" });')
+            assert.equal(transform('<div style="color: red" />'), 'newVNode(17, "div", null, null, { "style": "color: red" });')
         })
 
         it('Should keep custom properties in a style object', () => {
-            assert.equal(transform('<div style={{"--foo": 5}} />'), 'createVNode(1, "div", null, null, 1, { "style": { "--foo": 5 } });')
+            assert.equal(transform('<div style={{"--foo": 5}} />'), 'newVNode(17, "div", null, null, { "style": { "--foo": 5 } });')
         })
 
         it('Should keep dangerouslySetInnerHTML', () => {
             assert.equal(
                 transform('<div dangerouslySetInnerHTML={{__html: x}} />'),
-                'createVNode(1, "div", null, null, 1, { "dangerouslySetInnerHTML": { __html: x } });'
+                'newVNode(17, "div", null, null, { "dangerouslySetInnerHTML": { __html: x } });'
             )
         })
 
         it('Should emit both dangerouslySetInnerHTML and children', () => {
             assert.equal(
                 transform('<div dangerouslySetInnerHTML={{__html: "abcdef"}}>ghjkl</div>'),
-                'createVNode(1, "div", null, "ghjkl", 16, { "dangerouslySetInnerHTML": { __html: "abcdef" } });'
+                'newVNode(3, "div", null, "ghjkl", { "dangerouslySetInnerHTML": { __html: "abcdef" } });'
             )
         })
 
         it('Should keep dangerouslySetInnerHTML on a void element', () => {
             assert.equal(
                 transform('<input dangerouslySetInnerHTML={{__html: "content"}} />'),
-                'createVNode(64, "input", null, null, 1, { "dangerouslySetInnerHTML": { __html: "content" } });'
+                'newVNode(528, "input", null, null, { "dangerouslySetInnerHTML": { __html: "content" } });'
             )
         })
     })
 
     describe('className and class', () => {
         it('Should pass an empty className', () => {
-            assert.equal(transform('<div className="" />'), 'createVNode(1, "div", "");')
+            assert.equal(transform('<div className="" />'), 'newVNode(17, "div", "");')
         })
 
         it('Should pass an undefined className', () => {
-            assert.equal(transform('<div className={undefined} />'), 'createVNode(1, "div", undefined);')
+            assert.equal(transform('<div className={undefined} />'), 'newVNode(17, "div", undefined);')
         })
 
         it('Should omit a null className', () => {
-            assert.equal(transform('<div className={null} />'), 'createVNode(1, "div");')
+            assert.equal(transform('<div className={null} />'), 'newVNode(17, "div");')
         })
 
         it('Should keep className and class as props on components', () => {
-            assert.equal(transform('<Foo className="x" class="y" />'), 'createComponentVNode(2, Foo, { "className": "x", "class": "y" });')
+            assert.equal(transform('<Foo className="x" class="y" />'), 'newComponentVNode(0, Foo, { "className": "x", "class": "y" });')
         })
 
         it('Should use class on svg elements', () => {
-            assert.equal(transform('<svg class="a"><g className="b"/></svg>'), 'createVNode(32, "svg", "a", createVNode(32, "g", "b"), 2);')
+            assert.equal(transform('<svg class="a"><g className="b"/></svg>'), 'newVNode(72, "svg", "a", newVNode(80, "g", "b"));')
         })
     })
 
@@ -189,13 +189,13 @@ describe('Attributes', () => {
         })
 
         it('Should allow htmlFor together with for on components', () => {
-            assert.equal(transform('<Foo htmlFor="a" for="b" />'), 'createComponentVNode(2, Foo, { "htmlFor": "a", "for": "b" });')
+            assert.equal(transform('<Foo htmlFor="a" for="b" />'), 'newComponentVNode(0, Foo, { "htmlFor": "a", "for": "b" });')
         })
 
         it('Should allow a prop next to a spread containing the same prop', () => {
             assert.equal(
                 transform('<p {...{prop}} prop />'),
-                'normalizeProps(createVNode(1, "p", null, null, 1, Object.assign({}, { prop }, { "prop": true })));'
+                'normalizeProps(newVNode(17, "p", null, null, Object.assign({}, { prop }, { "prop": true })));'
             )
         })
 
@@ -213,7 +213,8 @@ describe('Attributes', () => {
 
             assert.equal(f.calls, 1)
             assert.equal(vNode.children, 'x')
-            assert.equal(vNode.childFlags, 16)
+            // HtmlElement and HasTextChildren
+            assert.equal(vNode.flags, 3)
         })
 
         it('Should evaluate a children prop replaced by several JSX children', () => {
@@ -222,7 +223,8 @@ describe('Attributes', () => {
 
             assert.equal(f.calls, 1)
             assert.deepEqual(vNode.children.map(child => child.type), ['a', 'b'])
-            assert.equal(vNode.childFlags, 4)
+            // HtmlElement and HasNonKeyedChildren
+            assert.equal(vNode.flags, 5)
         })
 
         it('Should reject duplicate children props on components', () => {
@@ -274,7 +276,7 @@ describe('Attributes', () => {
         })
 
         it('Should drop replaced values without side effects', () => {
-            assert.equal(transform('<div a children={["a", {b: 1}, () => x, -1]}>c</div>'), 'createVNode(1, "div", null, "c", 16, { "a": true });')
+            assert.equal(transform('<div a children={["a", {b: 1}, () => x, -1]}>c</div>'), 'newVNode(3, "div", null, "c", { "a": true });')
         })
 
         it('Should keep replaced values that may have side effects', () => {
@@ -289,34 +291,35 @@ describe('Attributes', () => {
 
             assert.equal(iterations, 1)
             assert.equal(vNode.children, 'c')
-            assert.equal(vNode.childFlags, 16)
+            // HtmlElement and HasTextChildren
+            assert.equal(vNode.flags, 3)
         })
     })
 
     describe('JSX as attribute values', () => {
         it('Should compile an element attribute value without braces on an element', () => {
-            assert.equal(transform('<div attr=<span/> />'), 'createVNode(1, "div", null, null, 1, { "attr": createVNode(1, "span") });')
+            assert.equal(transform('<div attr=<span/> />'), 'newVNode(17, "div", null, null, { "attr": newVNode(17, "span") });')
         })
 
         it('Should compile an element attribute value without braces on a component', () => {
-            assert.equal(transform('<Foo attr=<span/> />'), 'createComponentVNode(2, Foo, { "attr": createVNode(1, "span") });')
+            assert.equal(transform('<Foo attr=<span/> />'), 'newComponentVNode(0, Foo, { "attr": newVNode(17, "span") });')
         })
 
         it('Should compile a fragment attribute value', () => {
-            assert.equal(transform('<Foo value={<>{a}</>} />'), 'createComponentVNode(2, Foo, { "value": createFragment(a, 0) });')
+            assert.equal(transform('<Foo value={<>{a}</>} />'), 'newComponentVNode(0, Foo, { "value": newFragment(256, a) });')
         })
 
         it('Should compile JSX in a conditional attribute value', () => {
             assert.equal(
                 transform('<a b={x ? <c /> : <d />} />'),
-                'createVNode(1, "a", null, null, 1, { "b": x ? createVNode(1, "c") : createVNode(1, "d") });'
+                'newVNode(17, "a", null, null, { "b": x ? newVNode(17, "c") : newVNode(17, "d") });'
             )
         })
 
         it('Should compile render props and element props', () => {
             assert.equal(
                 transform('<Foo render={() => <div>{x}</div>} icon={<Icon/>} />'),
-                'createComponentVNode(2, Foo, { "render": () => createVNode(1, "div", null, x, 0), "icon": createComponentVNode(2, Icon) });'
+                'newComponentVNode(0, Foo, { "render": () => newVNode(1, "div", null, x), "icon": newComponentVNode(0, Icon) });'
             )
         })
     })
@@ -326,16 +329,16 @@ describe('Attributes', () => {
         it('Should keep multi-line expression attributes with comments', () => {
             const code = transform('<div attr2={\n  "foo" + "bar" +\n\n  "baz" + "bug"\n  // Extra line here.\n} />')
 
-            assert.equal(code, 'createVNode(1, "div", null, null, 1, { "attr2": "foo" + "bar" +\n        "baz" + "bug" });')
+            assert.equal(code, 'newVNode(17, "div", null, null, { "attr2": "foo" + "bar" +\n        "baz" + "bug" });')
             expectValidJS(code)
         })
 
         it('Should allow spaces around =', () => {
-            assert.equal(transform('<Trans b = "2" />'), 'createComponentVNode(2, Trans, { "b": "2" });')
+            assert.equal(transform('<Trans b = "2" />'), 'newComponentVNode(0, Trans, { "b": "2" });')
         })
 
         it('Should allow a line break before =', () => {
-            assert.equal(transform('<Foo y\n={2 } z />'), 'createComponentVNode(2, Foo, { "y": 2, "z": true });')
+            assert.equal(transform('<Foo y\n={2 } z />'), 'newComponentVNode(0, Foo, { "y": 2, "z": true });')
         })
     })
 
@@ -343,12 +346,12 @@ describe('Attributes', () => {
         it('Should not map htmlFor, acceptCharset or colSpan on components', () => {
             assert.equal(
                 transform('<Foo htmlFor="x" acceptCharset="y" colSpan={2} />'),
-                'createComponentVNode(2, Foo, { "htmlFor": "x", "acceptCharset": "y", "colSpan": 2 });'
+                'newComponentVNode(0, Foo, { "htmlFor": "x", "acceptCharset": "y", "colSpan": 2 });'
             )
         })
 
         it('Should not map onDoubleClick on components', () => {
-            assert.equal(transform('<Foo onDoubleClick={f} />'), 'createComponentVNode(2, Foo, { "onDoubleClick": f });')
+            assert.equal(transform('<Foo onDoubleClick={f} />'), 'newComponentVNode(0, Foo, { "onDoubleClick": f });')
         })
     })
 
@@ -356,34 +359,34 @@ describe('Attributes', () => {
         it('Should map httpEquiv and charSet', () => {
             assert.equal(
                 transform('<meta httpEquiv="refresh" charSet="utf-8" />'),
-                'createVNode(1, "meta", null, null, 1, { "http-equiv": "refresh", "charset": "utf-8" });'
+                'newVNode(17, "meta", null, null, { "http-equiv": "refresh", "charset": "utf-8" });'
             )
         })
 
         it('Should map textAnchor on svg text', () => {
             assert.equal(
                 transform('<svg><text textAnchor="middle" /></svg>'),
-                'createVNode(32, "svg", null, createVNode(32, "text", null, null, 1, { "text-anchor": "middle" }), 2);'
+                'newVNode(72, "svg", null, newVNode(80, "text", null, null, { "text-anchor": "middle" }));'
             )
         })
 
         it('Should map transformOrigin', () => {
-            assert.equal(transform('<div transformOrigin="0 0" />'), 'createVNode(1, "div", null, null, 1, { "transform-origin": "0 0" });')
+            assert.equal(transform('<div transformOrigin="0 0" />'), 'newVNode(17, "div", null, null, { "transform-origin": "0 0" });')
         })
 
         it('Should lowercase tabIndex, readOnly and maxLength', () => {
             assert.equal(
                 transform('<div tabIndex="1" readOnly maxLength={3} />'),
-                'createVNode(1, "div", null, null, 1, { "tabindex": "1", "readonly": true, "maxlength": 3 });'
+                'newVNode(17, "div", null, null, { "tabindex": "1", "readonly": true, "maxlength": 3 });'
             )
         })
 
         it('Should map onDoubleClick and keep ondblclick', () => {
-            assert.equal(transform('<div onDoubleClick={f} ondblclick={g} />'), 'createVNode(1, "div", null, null, 1, { "onDblClick": f, "ondblclick": g });')
+            assert.equal(transform('<div onDoubleClick={f} ondblclick={g} />'), 'newVNode(17, "div", null, null, { "onDblClick": f, "ondblclick": g });')
         })
 
         it('Should map accentHeight on font-face', () => {
-            assert.equal(transform('<font-face accentHeight={10} />'), 'createVNode(32, "font-face", null, null, 1, { "accent-height": 10 });')
+            assert.equal(transform('<font-face accentHeight={10} />'), 'newVNode(80, "font-face", null, null, { "accent-height": 10 });')
         })
     })
 
@@ -391,43 +394,43 @@ describe('Attributes', () => {
         it('Should keep capture event names', () => {
             assert.equal(
                 transform('<div onClickCapture={f} onGotPointerCaptureCapture={g} onTouchMoveCapture={h} />'),
-                'createVNode(1, "div", null, null, 1, { "onClickCapture": f, "onGotPointerCaptureCapture": g, "onTouchMoveCapture": h });'
+                'newVNode(17, "div", null, null, { "onClickCapture": f, "onGotPointerCaptureCapture": g, "onTouchMoveCapture": h });'
             )
         })
 
         it('Should keep lowercase and custom event names', () => {
             assert.equal(
                 transform('<div onclick={f} onanimationend={g} onOtherClick={h} />'),
-                'createVNode(1, "div", null, null, 1, { "onclick": f, "onanimationend": g, "onOtherClick": h });'
+                'newVNode(17, "div", null, null, { "onclick": f, "onanimationend": g, "onOtherClick": h });'
             )
         })
 
         it('Should keep newer event names', () => {
             assert.equal(
                 transform('<div onScrollEnd={a} onBeforeToggle={b} onCommand={c} onFormData={d} onAuxClick={e} />'),
-                'createVNode(1, "div", null, null, 1, { "onScrollEnd": a, "onBeforeToggle": b, "onCommand": c, "onFormData": d, "onAuxClick": e });'
+                'newVNode(17, "div", null, null, { "onScrollEnd": a, "onBeforeToggle": b, "onCommand": c, "onFormData": d, "onAuxClick": e });'
             )
         })
 
         it('Should keep onChange and onInput together', () => {
-            assert.equal(transform('<input onChange={f} onInput={g} />'), 'createVNode(64, "input", null, null, 1, { "onChange": f, "onInput": g });')
+            assert.equal(transform('<input onChange={f} onInput={g} />'), 'newVNode(528, "input", null, null, { "onChange": f, "onInput": g });')
         })
 
         it('Should keep focus events and false handlers', () => {
             assert.equal(
                 transform('<div onClick={false} onFocusIn={h} onFocusOut={i} />'),
-                'createVNode(1, "div", null, null, 1, { "onClick": false, "onFocusIn": h, "onFocusOut": i });'
+                'newVNode(17, "div", null, null, { "onClick": false, "onFocusIn": h, "onFocusOut": i });'
             )
         })
 
         it('Should keep a string event handler on an element', () => {
-            assert.equal(transform('<div onclick="a" />'), 'createVNode(1, "div", null, null, 1, { "onclick": "a" });')
+            assert.equal(transform('<div onclick="a" />'), 'newVNode(17, "div", null, null, { "onclick": "a" });')
         })
     })
 
     describe('__proto__ prop', () => {
         it('Should emit __proto__ as a computed key on components', () => {
-            assert.equal(transform('<Foo __proto__={x} />'), 'createComponentVNode(2, Foo, { ["__proto__"]: x });')
+            assert.equal(transform('<Foo __proto__={x} />'), 'newComponentVNode(0, Foo, { ["__proto__"]: x });')
         })
 
         it('Should give the component an own __proto__ prop', () => {
@@ -439,59 +442,59 @@ describe('Attributes', () => {
         })
 
         it('Should emit __proto__ as a computed key on generic components', () => {
-            assert.equal(transform('<Foo<Bar> __proto__={x} />'), 'createComponentVNode(2, Foo, { ["__proto__"]: x });')
+            assert.equal(transform('<Foo<Bar> __proto__={x} />'), 'newComponentVNode(0, Foo, { ["__proto__"]: x });')
         })
 
         it('Should emit __proto__ as a computed key on elements', () => {
-            assert.equal(transform('<div __proto__={x} />'), 'createVNode(1, "div", null, null, 1, { ["__proto__"]: x });')
+            assert.equal(transform('<div __proto__={x} />'), 'newVNode(17, "div", null, null, { ["__proto__"]: x });')
         })
 
         it('Should keep __proto__ next to other props (babel proto-in-jsx-attribute)', () => {
-            assert.equal(transform('<p __proto__={null} class="bar" />'), 'createVNode(1, "p", "bar", null, 1, { ["__proto__"]: null });')
+            assert.equal(transform('<p __proto__={null} class="bar" />'), 'newVNode(17, "p", "bar", null, { ["__proto__"]: null });')
         })
     })
 
     describe('Object.prototype names as attributes', () => {
         it('Should pass constructor as a prop', () => {
-            assert.equal(transform('<div constructor="foo" />'), 'createVNode(1, "div", null, null, 1, { "constructor": "foo" });')
+            assert.equal(transform('<div constructor="foo" />'), 'newVNode(17, "div", null, null, { "constructor": "foo" });')
         })
 
         it('Should pass toString and hasOwnProperty as props', () => {
-            assert.equal(transform('<div toString="x" hasOwnProperty="y" />'), 'createVNode(1, "div", null, null, 1, { "toString": "x", "hasOwnProperty": "y" });')
+            assert.equal(transform('<div toString="x" hasOwnProperty="y" />'), 'newVNode(17, "div", null, null, { "toString": "x", "hasOwnProperty": "y" });')
         })
 
         it('Should pass valueOf as a prop', () => {
-            assert.equal(transform('<div valueOf={v} />'), 'createVNode(1, "div", null, null, 1, { "valueOf": v });')
+            assert.equal(transform('<div valueOf={v} />'), 'newVNode(17, "div", null, null, { "valueOf": v });')
         })
 
         it('Should pass isPrototypeOf and propertyIsEnumerable as props', () => {
             assert.equal(
                 transform('<div isPrototypeOf={v} propertyIsEnumerable={w} />'),
-                'createVNode(1, "div", null, null, 1, { "isPrototypeOf": v, "propertyIsEnumerable": w });'
+                'newVNode(17, "div", null, null, { "isPrototypeOf": v, "propertyIsEnumerable": w });'
             )
         })
 
         it('Should pass constructor as a prop on svg elements', () => {
-            assert.equal(transform('<rect constructor="x" />'), 'createVNode(32, "rect", null, null, 1, { "constructor": "x" });')
+            assert.equal(transform('<rect constructor="x" />'), 'newVNode(80, "rect", null, null, { "constructor": "x" });')
         })
     })
 
     describe('current behaviour (questionable)', () => {
         it('Should pass true as className for a valueless className', () => {
-            assert.equal(transform('<div className />'), 'createVNode(1, "div", true);')
+            assert.equal(transform('<div className />'), 'newVNode(17, "div", true);')
         })
 
         // Inferno removed noNormalize long ago, so like babel-plugin-inferno the plugin treats it as any other prop
         it('Should pass the removed noNormalize and $NoNormalize props through', () => {
-            assert.equal(transform('<div noNormalize />'), 'createVNode(1, "div", null, null, 1, { "noNormalize": true });')
-            assert.equal(transform('<div $NoNormalize />'), 'createVNode(1, "div", null, null, 1, { "$NoNormalize": true });')
+            assert.equal(transform('<div noNormalize />'), 'newVNode(17, "div", null, null, { "noNormalize": true });')
+            assert.equal(transform('<div $NoNormalize />'), 'newVNode(17, "div", null, null, { "$NoNormalize": true });')
         })
 
         // Babel keeps them as leading comments of the props
         it('Should drop comments between attributes', () => {
             assert.equal(
                 transform('<div\n  /* a multi-line\n     comment */\n  attr1="foo">\n  <span // a double-slash comment\n    attr2="bar"\n  />\n</div>'),
-                'createVNode(1, "div", null, createVNode(1, "span", null, null, 1, { "attr2": "bar" }), 2, { "attr1": "foo" });'
+                'newVNode(9, "div", null, newVNode(17, "span", null, null, { "attr2": "bar" }), { "attr1": "foo" });'
             )
         })
     })
@@ -500,25 +503,25 @@ describe('Attributes', () => {
         it('Should strip type assertions from attribute values', () => {
             assert.equal(
                 transform('<Foo value={x as number} other={y!} third={z satisfies string} />'),
-                'createComponentVNode(2, Foo, { "value": x, "other": y, "third": z });'
+                'newComponentVNode(0, Foo, { "value": x, "other": y, "third": z });'
             )
         })
 
         it('Should pass a className with a type assertion', () => {
-            assert.equal(transform('<div className={cls as string} style={{color: "red"} as const} />'), 'createVNode(1, "div", cls, null, 1, { "style": { color: "red" } });')
+            assert.equal(transform('<div className={cls as string} style={{color: "red"} as const} />'), 'newVNode(17, "div", cls, null, { "style": { color: "red" } });')
         })
 
         it('Should keep className, htmlFor and onDoubleClick as props on a generic component', () => {
             assert.equal(
                 transform('<Foo<string> className="x" htmlFor="y" onDoubleClick={f} />'),
-                'createComponentVNode(2, Foo, { "className": "x", "htmlFor": "y", "onDoubleClick": f });'
+                'newComponentVNode(0, Foo, { "className": "x", "htmlFor": "y", "onDoubleClick": f });'
             )
         })
 
         it('Should compile typed render props', () => {
             assert.equal(
                 transform('<Foo render={(v: number): any => <div>{v}</div>} />'),
-                'createComponentVNode(2, Foo, { "render": (v) => createVNode(1, "div", null, v, 0) });'
+                'newComponentVNode(0, Foo, { "render": (v) => newVNode(1, "div", null, v) });'
             )
         })
     })

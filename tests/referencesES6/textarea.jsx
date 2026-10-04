@@ -1,2 +1,2 @@
-import { createVNode } from "inferno";
-createVNode(128, "textarea", null, "foobar", 16);
+import { newVNode } from "inferno";
+newVNode(2050, "textarea", null, "foobar");

@@ -1,2 +1,2 @@
-import { createComponentVNode } from "inferno";
-createComponentVNode(2, UnknownClass, { "className": "first second", "children": "1" });
+import { newComponentVNode } from "inferno";
+newComponentVNode(0, UnknownClass, { "className": "first second", "children": "1" });

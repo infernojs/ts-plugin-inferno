@@ -1,5 +1,6 @@
 import {describe, it} from 'node:test'
 import * as assert from 'node:assert/strict'
+import {expectThrows} from './helpers'
 import {evaluate, renderToHTML} from './render'
 
 // ChildFlags of inferno-vnode-flags, for $ChildFlag
@@ -67,12 +68,15 @@ describe('Rendering with Inferno', () => {
             assert.equal(renderToHTML('<Fragment $HasTextChildren children="text" />'), 'text')
         })
 
-        it('Should render an element child of a Fragment declared as text', () => {
-            assert.equal(renderToHTML('<Fragment $HasTextChildren><b>x</b></Fragment>'), '<b>x</b>')
-            assert.equal(renderToHTML('<Fragment $HasTextChildren>{<b>x</b>}</Fragment>'), '<b>x</b>')
-            assert.equal(renderToHTML('<Fragment $HasTextChildren>{/* c */}<b>x</b></Fragment>'), '<b>x</b>')
-            assert.equal(renderToHTML('<Fragment $HasTextChildren children=<b>x</b> />'), '<b>x</b>')
-            assert.equal(renderToHTML('<Fragment $HasTextChildren><>text</></Fragment>'), 'text')
+        // The JSX shows that the child is no text, so the plugin rejects the flag instead of compiling around it
+        it('Should reject an element child of a Fragment declared as text', () => {
+            const message = '$HasTextChildren needs one text child, but the child is an element.'
+
+            expectThrows(() => renderToHTML('<Fragment $HasTextChildren><b>x</b></Fragment>'), message)
+            expectThrows(() => renderToHTML('<Fragment $HasTextChildren>{<b>x</b>}</Fragment>'), message)
+            expectThrows(() => renderToHTML('<Fragment $HasTextChildren>{/* c */}<b>x</b></Fragment>'), message)
+            expectThrows(() => renderToHTML('<Fragment $HasTextChildren children=<b>x</b> />'), message)
+            expectThrows(() => renderToHTML('<Fragment $HasTextChildren><>text</></Fragment>'), message)
         })
 
         it('Should render a dynamic child declared as a vNode', () => {
@@ -83,8 +87,8 @@ describe('Rendering with Inferno', () => {
             assert.equal(renderToHTML('<Fragment $HasVNodeChildren>{<b>x</b>}</Fragment>'), '<b>x</b>')
         })
 
-        it('Should render several dynamic children declared as vNodes', () => {
-            assert.equal(renderToHTML('<Fragment $HasVNodeChildren>{a}{b}</Fragment>', {a: evaluate('<i/>'), b: evaluate('<b/>')}), '<i></i><b></b>')
+        it('Should reject several dynamic children declared as a vNode', () => {
+            expectThrows(() => renderToHTML('<Fragment $HasVNodeChildren>{a}{b}</Fragment>', {a: evaluate('<i/>'), b: evaluate('<b/>')}), '$HasVNodeChildren needs one element or component child, but there are 2 children.')
         })
 
         it('Should evaluate an overridden children prop before the children', () => {
@@ -100,6 +104,12 @@ describe('Rendering with Inferno', () => {
             assert.equal(renderToHTML('<Fragment $ChildFlag={flag}>{x}</Fragment>', {flag: HAS_TEXT_CHILDREN, x: 'text'}), 'text')
             assert.equal(renderToHTML('<Fragment $ChildFlag={flag}>{x}</Fragment>', {flag: UNKNOWN_CHILDREN, x: ['a', 'b']}), 'ab')
         })
+
+        it('Should render a dynamic child as a numeric $ChildFlag declares it', () => {
+            assert.equal(renderToHTML('<Fragment $ChildFlag={2}>{x}</Fragment>', {x: evaluate('<b>x</b>')}), '<b>x</b>')
+            assert.equal(renderToHTML('<Fragment $ChildFlag={16}>{x}</Fragment>', {x: 'text'}), 'text')
+            assert.equal(renderToHTML('<div $ChildFlag={16}>{x}</div>', {x: 'text'}), '<div>text</div>')
+        })
     })
 
     describe('Fragment children prop strings', () => {
@@ -109,24 +119,31 @@ describe('Rendering with Inferno', () => {
             assert.equal(renderToHTML('<Fragment children="  " />'), '  ')
         })
 
-        it('Should render a children prop string with a child flag', () => {
-            assert.equal(renderToHTML('<Fragment $HasNonKeyedChildren children="text" />'), 'text')
-            assert.equal(renderToHTML('<Fragment $HasVNodeChildren children="text" />'), 'text')
+        it('Should reject a children prop string with a child flag for vNodes', () => {
+            expectThrows(() => renderToHTML('<Fragment $HasNonKeyedChildren children="text" />'), '$HasNonKeyedChildren needs an array of elements or components, but the child is text.')
+            expectThrows(() => renderToHTML('<Fragment $HasVNodeChildren children="text" />'), '$HasVNodeChildren needs one element or component child, but the child is text.')
         })
     })
 
-    // Without a child flag Inferno uses HasInvalidChildren, which renders none of the children
+    // $HasVNodeChildren declares a single vNode, so the plugin rejects several children instead of rendering them wrong
     describe('several children declared as vNodes', () => {
-        it('Should render several dynamic children', () => {
-            assert.equal(renderToHTML('<div $HasVNodeChildren>{a}{b}</div>', {a: evaluate('<i/>'), b: evaluate('<b/>')}), '<div><i></i><b></b></div>')
+        const message = '$HasVNodeChildren needs one element or component child, but '
+
+        it('Should reject several dynamic children', () => {
+            expectThrows(() => renderToHTML('<div $HasVNodeChildren>{a}{b}</div>', {a: evaluate('<i/>'), b: evaluate('<b/>')}), message + 'there are 2 children.')
         })
 
-        it('Should render a dynamic child next to whitespace', () => {
-            assert.equal(renderToHTML('<div $HasVNodeChildren>{a} </div>', {a: evaluate('<i/>')}), '<div><i></i> </div>')
+        it('Should reject a dynamic child next to whitespace', () => {
+            expectThrows(() => renderToHTML('<div $HasVNodeChildren>{a} </div>', {a: evaluate('<i/>')}), message + 'there are 2 children.')
         })
 
-        it('Should render a spread child', () => {
-            assert.equal(renderToHTML('<div $HasVNodeChildren>{...list}</div>', {list: [evaluate('<i/>'), evaluate('<b/>')]}), '<div><i></i><b></b></div>')
+        it('Should reject a spread child', () => {
+            expectThrows(() => renderToHTML('<div $HasVNodeChildren>{...list}</div>', {list: [evaluate('<i/>'), evaluate('<b/>')]}), message + 'the child is a spread, which makes an array.')
+        })
+
+        it('Should render several dynamic children declared as non keyed', () => {
+            assert.equal(renderToHTML('<div $HasNonKeyedChildren>{a}{b}</div>', {a: evaluate('<i/>'), b: evaluate('<b/>')}), '<div><i></i><b></b></div>')
+            assert.equal(renderToHTML('<div $HasNonKeyedChildren>{...list}</div>', {list: [evaluate('<i/>'), evaluate('<b/>')]}), '<div><i></i><b></b></div>')
         })
     })
 })

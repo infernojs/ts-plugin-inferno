@@ -1,3 +1,3 @@
 var $inferno = require("inferno");
-var createVNode = $inferno.createVNode;
-createVNode(4097, "span", null, null, 1, { "contenteditable": "false" });
+var newVNode = $inferno.newVNode;
+newVNode(131089, "span", null, null, { "contenteditable": "false" });

@@ -15,8 +15,8 @@ var __extends = (this && this.__extends) || (function () {
     };
 })();
 var $inferno = require("inferno");
-var createComponentVNode = $inferno.createComponentVNode;
-var createVNode = $inferno.createVNode;
+var newVNode = $inferno.newVNode;
+var newComponentVNode = $inferno.newComponentVNode;
 Object.defineProperty(exports, "__esModule", { value: true });
 var inferno_1 = require("inferno");
 var Incrementer_1 = require("./components/Incrementer");
@@ -29,8 +29,8 @@ var MyComponent = /** @class */ (function (_super) {
         return _this;
     }
     MyComponent.prototype.render = function () {
-        return (createVNode(1, "div", null, [createVNode(1, "h1", null, "Welcome to Inferno ".concat(inferno_1.version, " TSX ").concat(this.tsxVersion), 0), createComponentVNode(2, Incrementer_1.Incrementer, { "name": "Crazy button" })], 4));
+        return (newVNode(5, "div", null, [newVNode(1, "h1", null, "Welcome to Inferno ".concat(inferno_1.version, " TSX ").concat(this.tsxVersion)), newComponentVNode(0, Incrementer_1.Incrementer, { "name": "Crazy button" })]));
     };
     return MyComponent;
 }(inferno_1.Component));
-(0, inferno_1.render)(createComponentVNode(2, MyComponent), container);
+(0, inferno_1.render)(newComponentVNode(0, MyComponent), container);

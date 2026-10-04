@@ -1,2 +1,2 @@
-import { createVNode } from "inferno";
-const foo = createVNode(1, "div", null, null, 1, { "data-attribute": "123" });
+import { newVNode } from "inferno";
+const foo = newVNode(17, "div", null, null, { "data-attribute": "123" });

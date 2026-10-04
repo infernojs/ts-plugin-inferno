@@ -1,1 +1,1 @@
-<div $ReCreate/>
+<div key={version}/>

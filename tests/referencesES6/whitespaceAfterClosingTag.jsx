@@ -1,2 +1,2 @@
-import { createVNode, createTextVNode } from "inferno";
-createVNode(1, "p", null, [createVNode(1, "span", null, "hello", 16), createTextVNode(" world")], 4);
+import { newVNode, newTextVNode } from "inferno";
+newVNode(5, "p", null, [newVNode(3, "span", null, "hello"), newTextVNode(" world")]);

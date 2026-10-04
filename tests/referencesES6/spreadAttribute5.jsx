@@ -1,2 +1,2 @@
-import { createVNode, normalizeProps } from "inferno";
-normalizeProps(createVNode(1, "div", "test", null, 1, Object.assign({}, { "foo": "bar" }, props)));
+import { newVNode, normalizeProps } from "inferno";
+normalizeProps(newVNode(17, "div", "test", null, Object.assign({}, { "foo": "bar" }, props)));

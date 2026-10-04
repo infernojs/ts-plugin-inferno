@@ -1,4 +1,4 @@
-import {createVNode} from "inferno"; // If this line is uncommented, no problems
+import {newVNode} from "inferno"; // If this line is uncommented, no problems
 import {InfernoNode} from "inferno";
 import {a} from "./test";
 

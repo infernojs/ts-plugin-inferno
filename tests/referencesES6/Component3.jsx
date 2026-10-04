@@ -1,2 +1,2 @@
-import { createVNode, createComponentVNode } from "inferno";
-createComponentVNode(2, Comp, { "children": [createVNode(1, "p", null, "child1", 16), createVNode(1, "p", null, "child2", 16), createVNode(1, "p", null, "child3", 16)] });
+import { newVNode, newComponentVNode } from "inferno";
+newComponentVNode(0, Comp, { "children": [newVNode(3, "p", null, "child1"), newVNode(3, "p", null, "child2"), newVNode(3, "p", null, "child3")] });

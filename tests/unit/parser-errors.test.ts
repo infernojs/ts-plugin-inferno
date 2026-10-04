@@ -52,7 +52,7 @@ describe('Parser errors', function () {
     })
 
     it('Should keep an unparenthesized sequence expression as one attribute value', function () {
-        assert.equal(transform('<div a={b, c} />'), 'createVNode(1, "div", null, null, 1, { "a": (b, c) });')
+        assert.equal(transform('<div a={b, c} />'), 'newVNode(17, "div", null, null, { "a": (b, c) });')
     })
 
     // The recovered tree has two bar attributes, "bar=" and "bar", so the plugin rejects the duplicate

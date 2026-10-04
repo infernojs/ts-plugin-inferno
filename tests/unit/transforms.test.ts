@@ -22,44 +22,44 @@ describe('Transforms', () => {
         it('Should reject an empty ref', () => {
             assert.ok(checkerDiagnosticMessages('<div ref={}>{a}</div>').includes('JSX attributes must only be assigned a non-empty \'expression\'.'))
             // The plugin still compiles it, like any attribute with an empty expression the ref is null
-            assert.equal(transform('<div ref={}>{a}</div>'), 'createVNode(1, "div", null, a, 0);')
+            assert.equal(transform('<div ref={}>{a}</div>'), 'newVNode(1, "div", null, a);')
         })
     })
 
     describe('Dynamic children', () => {
-        it('Should not convert text to createVNode when its within Component', () => {
-            assert.equal(transform('<FooBar>1</FooBar>'), 'createComponentVNode(2, FooBar, { "children": "1" });')
+        it('Should not convert text to newVNode when its within Component', () => {
+            assert.equal(transform('<FooBar>1</FooBar>'), 'newComponentVNode(0, FooBar, { "children": "1" });')
         })
 
         it('Should create textVNodes when there is single children', () => {
-            assert.equal(transform('<div>foobar</div>'), 'createVNode(1, "div", null, "foobar", 16);')
+            assert.equal(transform('<div>foobar</div>'), 'newVNode(3, "div", null, "foobar");')
         })
 
         it('Should mark parent vNode with $HasKeyedChildren if even one child is keyed directly', () => {
             assert.equal(
                 transform('<div><span></span><div key="1">1</div></div>'),
-                'createVNode(1, "div", null, [createVNode(1, "span"), createVNode(1, "div", null, "1", 16, null, "1")], 8);'
+                'newVNode(33, "div", null, [newVNode(17, "span"), newVNode(3, "div", null, "1", null, "1")]);'
             )
         })
     })
 
     describe('Special flags', () => {
         it('Should be possible to define override flags runtime', () => {
-            assert.equal(transform('<img $Flags={bool ? 1 : 2}>{expression}</img>'), 'createVNode(bool ? 1 : 2, "img", null, expression, 0);')
+            assert.equal(transform('<img $Flags={bool ? 1 : 2}>{expression}</img>'), 'newVNode(bool ? 1 : 2, "img", null, expression);')
         })
 
         it('Should be possible to define override flags with constant', () => {
-            assert.equal(transform('<img $Flags={120}>foobar</img>'), 'createVNode(120, "img", null, "foobar", 16);')
+            assert.equal(transform('<img $Flags={120}>foobar</img>'), 'newVNode(122, "img", null, "foobar");')
         })
 
         it('Should be possible to use expression for flags', () => {
-            assert.equal(transform('<ComponentA $Flags={magic}/>'), 'createComponentVNode(magic, ComponentA);')
+            assert.equal(transform('<ComponentA $Flags={magic}/>'), 'newComponentVNode(magic | 16, ComponentA);')
         })
     })
 
     describe('onComponent hooks', () => {
         const input = '\n<Child\n    key={i}\n    onComponentDidAppear={childOnComponentDidAppear}\n    onComponentDidMount={childOnComponentDidMount}\n>\n  {i}\n</Child>\n'
-        const expected = 'createComponentVNode(2, Child, { "children": i }, i, { "onComponentDidAppear": childOnComponentDidAppear, "onComponentDidMount": childOnComponentDidMount });'
+        const expected = 'newComponentVNode(0, Child, { "children": i }, i, { "onComponentDidAppear": childOnComponentDidAppear, "onComponentDidMount": childOnComponentDidMount });'
 
         it('Should add hooks to refs for functional components', () => {
             assert.equal(transform(input), expected)
@@ -75,7 +75,7 @@ describe('Transforms', () => {
         it('Should do single normalization when multiple spread operators are used', () => {
             assert.equal(
                 transform('<FooBar><BarFoo {...magics} {...foobars} {...props}/><NoNormalize/></FooBar>'),
-                'createComponentVNode(2, FooBar, { "children": [normalizeProps(createComponentVNode(2, BarFoo, Object.assign({}, magics, foobars, props))), createComponentVNode(2, NoNormalize)] });'
+                'newComponentVNode(0, FooBar, { "children": [normalizeProps(newComponentVNode(0, BarFoo, Object.assign({}, magics, foobars, props))), newComponentVNode(0, NoNormalize)] });'
             )
         })
     })
@@ -84,38 +84,38 @@ describe('Transforms', () => {
         it('Should transform input and htmlFor correctly', () => {
             assert.equal(
                 transform('<label htmlFor={id}><input id={id} name={name} value={value} onChange={onChange} onInput={onInput} onKeyup={onKeyup} onFocus={onFocus} onClick={onClick} type="number" pattern="[0-9]+([,\\.][0-9]+)?" inputMode="numeric" min={minimum}/></label>'),
-                'createVNode(1, "label", null, createVNode(64, "input", null, null, 1, { "id": id, "name": name, "value": value, "onChange": onChange, "onInput": onInput, "onKeyup": onKeyup, "onFocus": onFocus, "onClick": onClick, "type": "number", "pattern": "[0-9]+([,\\\\.][0-9]+)?", "inputmode": "numeric", "min": minimum }), 2, { "for": id });'
+                'newVNode(9, "label", null, newVNode(528, "input", null, null, { "id": id, "name": name, "value": value, "onChange": onChange, "onInput": onInput, "onKeyup": onKeyup, "onFocus": onFocus, "onClick": onClick, "type": "number", "pattern": "[0-9]+([,\\\\.][0-9]+)?", "inputmode": "numeric", "min": minimum }), { "for": id });'
             )
         })
 
         it('Should transform acceptCharset correctly', () => {
-            assert.equal(transform('<form acceptCharset="ISO-8859-1"/>'), 'createVNode(1, "form", null, null, 1, { "accept-charset": "ISO-8859-1" });')
+            assert.equal(transform('<form acceptCharset="ISO-8859-1"/>'), 'newVNode(17, "form", null, null, { "accept-charset": "ISO-8859-1" });')
         })
 
         it('Should lowerCase f.e. colSpan', () => {
-            assert.equal(transform('<td colSpan="5"/>'), 'createVNode(1, "td", null, null, 1, { "colspan": "5" });')
+            assert.equal(transform('<td colSpan="5"/>'), 'newVNode(17, "td", null, null, { "colspan": "5" });')
         })
     })
 
     describe('SVG attributes React syntax support', () => {
         it('Should support native xlink:href', () => {
-            assert.equal(transform('<svg><use xlink:href="#tester"></use></svg>'), 'createVNode(32, "svg", null, createVNode(32, "use", null, null, 1, { "xlink:href": "#tester" }), 2);')
+            assert.equal(transform('<svg><use xlink:href="#tester"></use></svg>'), 'newVNode(72, "svg", null, newVNode(80, "use", null, null, { "xlink:href": "#tester" }));')
         })
 
         it('Should transform strokeWidth to stroke-width', () => {
-            assert.equal(transform('<svg><rect strokeWidth="1px"></rect></svg>'), 'createVNode(32, "svg", null, createVNode(32, "rect", null, null, 1, { "stroke-width": "1px" }), 2);')
+            assert.equal(transform('<svg><rect strokeWidth="1px"></rect></svg>'), 'newVNode(72, "svg", null, newVNode(80, "rect", null, null, { "stroke-width": "1px" }));')
         })
 
         // babel-plugin-inferno's tests.js names this case "Should transform strokeWidth to stroke-width" as well
         it('Should transform fillOpacity to fill-opacity', () => {
-            assert.equal(transform('<svg><rect fillOpacity="1"></rect></svg>'), 'createVNode(32, "svg", null, createVNode(32, "rect", null, null, 1, { "fill-opacity": "1" }), 2);')
+            assert.equal(transform('<svg><rect fillOpacity="1"></rect></svg>'), 'newVNode(72, "svg", null, newVNode(80, "rect", null, null, { "fill-opacity": "1" }));')
         })
     })
 
     describe('Fragments', () => {
         describe('Short syntax', () => {
-            it('Should createFragment dynamic children', () => {
-                assert.equal(transform('<>{dynamic}</>'), 'createFragment(dynamic, 0);')
+            it('Should newFragment dynamic children', () => {
+                assert.equal(transform('<>{dynamic}</>'), 'newFragment(256, dynamic);')
             })
         })
     })

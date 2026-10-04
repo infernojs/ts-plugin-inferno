@@ -1,2 +1,2 @@
-import { createVNode } from "inferno";
-createVNode(2049, "div");
+import { newVNode } from "inferno";
+newVNode(17, "div", null, null, null, version);

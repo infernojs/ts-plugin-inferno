@@ -70,7 +70,7 @@ function camelCase(name: string) {
 }
 
 function rectProps(name: string) {
-    return `createVNode(32, "rect", null, null, 1, { "${name}": "v" });`
+    return `newVNode(80, "rect", null, null, { "${name}": "v" });`
 }
 
 describe('SVG attributes (MDN reference)', () => {
@@ -82,7 +82,7 @@ describe('SVG attributes (MDN reference)', () => {
         }
 
         it('Should pass class as the className argument', () => {
-            assert.equal(transform('<rect class="v" />'), 'createVNode(32, "rect", "v");')
+            assert.equal(transform('<rect class="v" />'), 'newVNode(80, "rect", "v");')
         })
 
         it('Should keep data-* attributes', () => {
@@ -100,14 +100,14 @@ describe('SVG attributes (MDN reference)', () => {
         it('Should keep lengthAdjust in camelCase on svg text', () => {
             assert.equal(
                 transform('<svg><text lengthAdjust="spacing" /></svg>'),
-                'createVNode(32, "svg", null, createVNode(32, "text", null, null, 1, { "lengthAdjust": "spacing" }), 2);'
+                'newVNode(72, "svg", null, newVNode(80, "text", null, null, { "lengthAdjust": "spacing" }));'
             )
         })
 
         it('Should keep xChannelSelector and yChannelSelector in camelCase on feDisplacementMap', () => {
             assert.equal(
                 transform('<feDisplacementMap xChannelSelector="R" yChannelSelector="G" />'),
-                'createVNode(32, "feDisplacementMap", null, null, 1, { "xChannelSelector": "R", "yChannelSelector": "G" });'
+                'newVNode(80, "feDisplacementMap", null, null, { "xChannelSelector": "R", "yChannelSelector": "G" });'
             )
         })
     })
@@ -122,19 +122,19 @@ describe('SVG attributes (MDN reference)', () => {
 
     describe('camelCase names of presentation attributes on their elements', () => {
         it('Should map maskType to mask-type on mask', () => {
-            assert.equal(transform('<mask maskType="alpha" />'), 'createVNode(32, "mask", null, null, 1, { "mask-type": "alpha" });')
+            assert.equal(transform('<mask maskType="alpha" />'), 'newVNode(80, "mask", null, null, { "mask-type": "alpha" });')
         })
 
         it('Should map textOverflow to text-overflow on text', () => {
-            assert.equal(transform('<text textOverflow="ellipsis" />'), 'createVNode(32, "text", null, null, 1, { "text-overflow": "ellipsis" });')
+            assert.equal(transform('<text textOverflow="ellipsis" />'), 'newVNode(80, "text", null, null, { "text-overflow": "ellipsis" });')
         })
 
         it('Should map whiteSpace to white-space on text', () => {
-            assert.equal(transform('<text whiteSpace="nowrap" />'), 'createVNode(32, "text", null, null, 1, { "white-space": "nowrap" });')
+            assert.equal(transform('<text whiteSpace="nowrap" />'), 'newVNode(80, "text", null, null, { "white-space": "nowrap" });')
         })
 
         it('Should map fontWidth to font-width on text', () => {
-            assert.equal(transform('<text fontWidth="condensed" />'), 'createVNode(32, "text", null, null, 1, { "font-width": "condensed" });')
+            assert.equal(transform('<text fontWidth="condensed" />'), 'newVNode(80, "text", null, null, { "font-width": "condensed" });')
         })
     })
 
@@ -150,14 +150,14 @@ describe('SVG attributes (MDN reference)', () => {
         it('Should map camelCase svg attributes whose values have type assertions', () => {
             assert.equal(
                 transform('<rect strokeWidth={1 as const} xlinkHref={h satisfies string} fillOpacity={o!} />'),
-                'createVNode(32, "rect", null, null, 1, { "stroke-width": 1, "xlink:href": h, "fill-opacity": o });'
+                'newVNode(80, "rect", null, null, { "stroke-width": 1, "xlink:href": h, "fill-opacity": o });'
             )
         })
 
         it('Should keep camelCase svg attributes on a generic component', () => {
             assert.equal(
                 transform('<Icon<string> strokeWidth={2} viewBox="0 0 1 1" />'),
-                'createComponentVNode(2, Icon, { "strokeWidth": 2, "viewBox": "0 0 1 1" });'
+                'newComponentVNode(0, Icon, { "strokeWidth": 2, "viewBox": "0 0 1 1" });'
             )
         })
     })

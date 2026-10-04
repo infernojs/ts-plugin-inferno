@@ -1,4 +1,4 @@
 var $inferno = require("inferno");
+var newComponentVNode = $inferno.newComponentVNode;
 var normalizeProps = $inferno.normalizeProps;
-var createComponentVNode = $inferno.createComponentVNode;
-createComponentVNode(2, FooBar, { "children": [normalizeProps(createComponentVNode(2, BarFoo, Object.assign({}, props))), createComponentVNode(2, NoNormalize)] });
+newComponentVNode(0, FooBar, { "children": [normalizeProps(newComponentVNode(0, BarFoo, Object.assign({}, props))), newComponentVNode(0, NoNormalize)] });

@@ -1,4 +1,4 @@
 var $inferno = require("inferno");
-var createTextVNode = $inferno.createTextVNode;
-var createVNode = $inferno.createVNode;
-createVNode(1, "div", null, [createTextVNode("Okay"), createVNode(1, "span", null, "foo", 16)], 4);
+var newVNode = $inferno.newVNode;
+var newTextVNode = $inferno.newTextVNode;
+newVNode(5, "div", null, [newTextVNode("Okay"), newVNode(3, "span", null, "foo")]);

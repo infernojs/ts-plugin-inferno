@@ -1,6 +1,6 @@
 {
   "name": "ts-plugin-inferno",
-  "version": "7.0.0",
+  "version": "10.0.0",
   "description": "A typescript transformer for InfernoJS",
   "bugs": {
     "url": "https://github.com/infernojs/ts-plugin-inferno/issues"
@@ -37,6 +37,9 @@
   "license": "MIT",
   "dependencies": {
     "typescript": "^6"
+  },
+  "peerDependencies": {
+    "inferno": "^10.0.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",

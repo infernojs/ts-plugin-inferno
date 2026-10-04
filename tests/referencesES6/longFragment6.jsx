@@ -1,2 +1,2 @@
-import { createFragment, createVNode, createTextVNode } from "inferno";
-createFragment([createFragment([createVNode(1, "span"), createTextVNode("Text"), Wohoo], 0)], 4);
+import { newVNode, newFragment, newTextVNode } from "inferno";
+newFragment(260, [newFragment(256, [newVNode(17, "span"), newTextVNode("Text"), Wohoo])]);

@@ -1,3 +1,3 @@
 var $inferno = require("inferno");
-var createVNode = $inferno.createVNode;
-createVNode(1, "div", null, null, 1, { "onDblClick": foobar });
+var newVNode = $inferno.newVNode;
+newVNode(17, "div", null, null, { "onDblClick": foobar });

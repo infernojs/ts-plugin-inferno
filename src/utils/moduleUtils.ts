@@ -99,10 +99,7 @@ export function getUniqueName(base: string, names: Set<string>): string {
     return name
 }
 
-/*
- * var createVNode = $inferno.createVNode; ... for each helper, in the order the plugin has always emitted them
- * for CommonJS.
- */
+// var newVNode = $inferno.newVNode; ... for each helper, in the order they are imported in ES modules
 export function createHelperStatements(factory: NodeFactory, helpers: string[], moduleName: string): Statement[] {
     return helpers.map(helper => factory.createVariableStatement(undefined, [
         factory.createVariableDeclaration(
@@ -111,7 +108,7 @@ export function createHelperStatements(factory: NodeFactory, helpers: string[], 
             undefined,
             factory.createPropertyAccessExpression(factory.createIdentifier(moduleName), helper)
         )
-    ])).reverse()
+    ]))
 }
 
 // var $inferno = require("inferno");

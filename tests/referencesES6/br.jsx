@@ -1,2 +1,2 @@
-import { createVNode } from "inferno";
-export const br = createVNode(1, "br", null, "foobar", 16);
+import { newVNode } from "inferno";
+export const br = newVNode(3, "br", null, "foobar");

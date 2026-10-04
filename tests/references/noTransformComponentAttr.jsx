@@ -1,3 +1,3 @@
 var $inferno = require("inferno");
-var createComponentVNode = $inferno.createComponentVNode;
-createComponentVNode(2, Foobar, { "strokeWidth": "1px", "fillOpacity": "1" });
+var newComponentVNode = $inferno.newComponentVNode;
+newComponentVNode(0, Foobar, { "strokeWidth": "1px", "fillOpacity": "1" });

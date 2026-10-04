@@ -1,2 +1,2 @@
-import { createVNode } from "inferno";
-createVNode(32, "svg", null, null, 1, { "dominant-baseline": true, "clip-rule": null, "cap-height": 3 });
+import { newVNode } from "inferno";
+newVNode(80, "svg", null, null, { "dominant-baseline": true, "clip-rule": null, "cap-height": 3 });

@@ -1,3 +1,3 @@
 var $inferno = require("inferno");
-var createFragment = $inferno.createFragment;
-createFragment(magic, 0);
+var newFragment = $inferno.newFragment;
+newFragment(256, magic);

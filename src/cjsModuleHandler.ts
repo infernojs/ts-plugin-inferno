@@ -8,7 +8,7 @@ import {
 } from "./utils/moduleUtils";
 
 /*
- * Inserts var $inferno = require("inferno"); var createVNode = $inferno.createVNode; ... after the directives of
+ * Inserts var $inferno = require("inferno"); var newVNode = $inferno.newVNode; ... after the directives of
  * `statements`. Helpers the statements already declare are used as they are, and $inferno gets another name when it
  * is taken.
  */

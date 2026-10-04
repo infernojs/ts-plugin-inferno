@@ -30,7 +30,7 @@ import {
     VisitResult
 } from "typescript";
 import * as ts from "typescript";
-import {ChildFlags, VNodeFlags} from './utils/flags'
+import {ChildFlags, childBits, VNodeFlags} from './utils/flags'
 import isComponent from './utils/isComponent'
 import isValidIdentifier from './utils/isValidIdentifier'
 import isFragment from './utils/isFragment'
@@ -52,19 +52,48 @@ let PROP_HasKeyedChildren = '$HasKeyedChildren'
 let PROP_HasNonKeyedChildren = '$HasNonKeyedChildren'
 let PROP_VNODE_CHILDREN = '$HasVNodeChildren'
 let PROP_TEXT_CHILDREN = '$HasTextChildren'
+// Removed in Inferno 10, using it is an error
 let PROP_ReCreate = '$ReCreate'
 let PROP_ChildFlag = '$ChildFlag'
 let PROP_Flags = '$Flags'
 
 // Child flags in the order they take precedence over each other
 const CHILD_FLAG_PROPS = [PROP_ChildFlag, PROP_HasKeyedChildren, PROP_HasNonKeyedChildren, PROP_TEXT_CHILDREN, PROP_VNODE_CHILDREN]
+// What a child flag needs, by ChildFlags value
+const CHILD_FLAG_NEEDS: Record<number, string> = {
+    1: 'no children',
+    2: 'one element or component child',
+    4: 'an array of elements or components',
+    8: 'an array of elements or components that all have a key',
+    16: 'one text child'
+}
+const CHILD_FLAG_NAMES: Record<number, string> = {
+    0: 'UnknownChildren',
+    1: 'HasInvalidChildren',
+    2: 'HasVNodeChildren',
+    4: 'HasNonKeyedChildren',
+    8: 'HasKeyedChildren',
+    16: 'HasTextChildren'
+}
+const CHILD_FLAG_OF_PROP: Record<string, number> = {
+    [PROP_VNODE_CHILDREN]: ChildFlags.HasVNodeChildren,
+    [PROP_TEXT_CHILDREN]: ChildFlags.HasTextChildren,
+    [PROP_HasNonKeyedChildren]: ChildFlags.HasNonKeyedChildren,
+    [PROP_HasKeyedChildren]: ChildFlags.HasKeyedChildren
+}
 const USELESS_FLAGS_LEVELS = ['warn', 'error', 'off']
 
 const TYPE_ELEMENT = 0
 const TYPE_COMPONENT = 1
 const TYPE_FRAGMENT = 2
 
-export const POSSIBLE_IMPORTS_TO_ADD = ['createFragment', 'createVNode', 'createComponentVNode', 'createTextVNode', 'normalizeProps'];
+/*
+ * The Inferno functions the compiled code calls, in the order they are imported. The deprecated createVNode and
+ * createFragment are only called for a $ChildFlag that is known at runtime.
+ */
+export const POSSIBLE_IMPORTS_TO_ADD = ['newVNode', 'createVNode', 'newFragment', 'createFragment', 'newComponentVNode', 'normalizeProps', 'newTextVNode'] as const;
+
+type Helper = typeof POSSIBLE_IMPORTS_TO_ADD[number]
 
 function getPropertyName(astProp: any) {
     // TypeScript@5.1 added in ts.JsxNamespacedName directly
@@ -84,6 +113,207 @@ const CONTAINS_JSX: number | undefined = (<any>ts).TransformFlags?.ContainsJsx
 // Own properties only, so that names like constructor or __proto__ do not match Object.prototype
 function hasOwn(object: object, key: string) {
     return Object.prototype.hasOwnProperty.call(object, key)
+}
+
+// Parentheses and TypeScript syntax that does not change the value, e.g. (<a />) or <a /> as any
+function skipOuterExpressions(node) {
+    while (
+        node.kind === SyntaxKind.ParenthesizedExpression ||
+        node.kind === SyntaxKind.PartiallyEmittedExpression ||
+        node.kind === SyntaxKind.AsExpression ||
+        node.kind === SyntaxKind.SatisfiesExpression ||
+        node.kind === SyntaxKind.NonNullExpression ||
+        node.kind === SyntaxKind.TypeAssertionExpression
+    ) {
+        node = node.expression
+    }
+    return node
+}
+
+function isJsxNode(node) {
+    return node.kind === SyntaxKind.JsxElement || node.kind === SyntaxKind.JsxSelfClosingElement || node.kind === SyntaxKind.JsxFragment
+}
+
+// A child as far as the JSX shows it: text, empty (null, true or false), array, vnode, spread or dynamic
+interface ChildShape {
+    kind: 'text' | 'empty' | 'array' | 'vnode' | 'spread' | 'dynamic'
+    code?: string
+    keyed?: boolean
+    elements?: NodeArray<Expression>
+}
+
+function hasKeyProp(node) {
+    const attributes = node.kind === SyntaxKind.JsxElement
+        ? node.openingElement.attributes
+        : node.kind === SyntaxKind.JsxSelfClosingElement ? node.attributes : null
+
+    if (attributes === null) {
+        return false
+    }
+    const properties = attributes.properties
+
+    for (let i = 0; i < properties.length; i++) {
+        const property = properties[i]
+
+        if (property.kind === SyntaxKind.JsxAttribute && property.name.kind === SyntaxKind.Identifier && idText(property.name) === 'key') {
+            return true
+        }
+    }
+    return false
+}
+
+// The kind of a child that an expression gives, as far as the JSX shows it
+function expressionChild(expression: Expression): ChildShape {
+    const node = skipOuterExpressions(expression)
+
+    switch (node.kind) {
+        case SyntaxKind.StringLiteral:
+        case SyntaxKind.NoSubstitutionTemplateLiteral:
+        case SyntaxKind.TemplateExpression:
+        case SyntaxKind.NumericLiteral:
+            return {kind: 'text'}
+        case SyntaxKind.NullKeyword:
+            return {kind: 'empty', code: 'null'}
+        case SyntaxKind.TrueKeyword:
+            return {kind: 'empty', code: 'true'}
+        case SyntaxKind.FalseKeyword:
+            return {kind: 'empty', code: 'false'}
+        case SyntaxKind.ArrayLiteralExpression:
+            return {kind: 'array', elements: node.elements}
+        case SyntaxKind.JsxElement:
+        case SyntaxKind.JsxSelfClosingElement:
+        case SyntaxKind.JsxFragment:
+            return {kind: 'vnode', keyed: hasKeyProp(node)}
+        default:
+            return {kind: 'dynamic'}
+    }
+}
+
+/*
+ * The children the vNode gets, as far as the JSX shows them; JSX children replace a children prop. propChildren is
+ * the value of the children attribute, which a valueless attribute does not have.
+ */
+function childrenShape(astChildren: NodeArray<JsxChild> | undefined, hasChildrenProp: boolean, propChildren): ChildShape[] {
+    const children: ChildShape[] = []
+
+    if (astChildren) {
+        for (let i = 0; i < astChildren.length; i++) {
+            const child = astChildren[i]
+
+            switch (child.kind) {
+                case SyntaxKind.JsxText:
+                    if (handleWhiteSpace(child.text) !== '') {
+                        children.push({kind: 'text'})
+                    }
+                    break
+                case SyntaxKind.JsxExpression:
+                    if (child.dotDotDotToken) {
+                        children.push({kind: 'spread'})
+                    } else if (child.expression) {
+                        children.push(expressionChild(child.expression))
+                    }
+                    break
+                default:
+                    children.push({kind: 'vnode', keyed: hasKeyProp(child)})
+            }
+        }
+    }
+    if (children.length === 0 && hasChildrenProp) {
+        if (!propChildren) {
+            children.push({kind: 'empty', code: 'true'})
+        } else if (propChildren.kind === SyntaxKind.StringLiteral) {
+            if (handleWhiteSpace(propChildren.text) !== '') {
+                children.push({kind: 'text'})
+            }
+        } else if (propChildren.kind === SyntaxKind.JsxExpression) {
+            if (propChildren.expression) {
+                children.push(expressionChild(propChildren.expression))
+            }
+        } else {
+            children.push({kind: 'vnode', keyed: hasKeyProp(propChildren)})
+        }
+    }
+    return children
+}
+
+function describeSingleChild(child: ChildShape) {
+    switch (child.kind) {
+        case 'text':
+            return 'the child is text'
+        case 'empty':
+            return 'the child is ' + child.code + ', which renders nothing'
+        case 'array':
+            return 'the child is an array'
+        case 'spread':
+            return 'the child is a spread, which makes an array'
+        default:
+            return 'the child is an element'
+    }
+}
+
+// Why the children cannot have the shape the child flag declares, or null when they can or the JSX does not show it
+function childShapeMismatch(childFlags: number, children: ChildShape[]): string | null {
+    const count = children.length
+    const child = children[0]
+
+    if (childFlags === ChildFlags.HasInvalidChildren) {
+        for (let i = 0; i < count; i++) {
+            if (children[i].kind !== 'empty' && children[i].kind !== 'dynamic') {
+                return count === 1 ? describeSingleChild(children[i]) : 'there are ' + count + ' children'
+            }
+        }
+        return null
+    }
+    if (count === 0) {
+        return 'there are no children'
+    }
+    if (childFlags === ChildFlags.HasVNodeChildren || childFlags === ChildFlags.HasTextChildren) {
+        if (count > 1) {
+            return 'there are ' + count + ' children'
+        }
+        if (child.kind === 'dynamic' || child.kind === (childFlags === ChildFlags.HasVNodeChildren ? 'vnode' : 'text')) {
+            return null
+        }
+        return describeSingleChild(child)
+    }
+    // Keyed and non keyed children are an array
+    const keyed = childFlags === ChildFlags.HasKeyedChildren
+
+    if (count === 1) {
+        if (child.kind === 'dynamic' || child.kind === 'spread') {
+            return null
+        }
+        if (child.kind !== 'array') {
+            return child.kind === 'vnode' ? 'the only child is an element, not an array' : describeSingleChild(child)
+        }
+        if (keyed) {
+            for (let i = 0; i < child.elements.length; i++) {
+                const element = skipOuterExpressions(child.elements[i])
+
+                if (isJsxNode(element) && !hasKeyProp(element)) {
+                    return 'the array item at index ' + i + ' has no key'
+                }
+            }
+        }
+        return null
+    }
+    for (let i = 0; i < count; i++) {
+        const item = children[i]
+
+        if (item.kind === 'empty') {
+            return 'the child at index ' + i + ' is ' + item.code + ', which renders nothing'
+        }
+        if (item.kind === 'array') {
+            return 'the child at index ' + i + ' is an array, which makes a nested array'
+        }
+        if (keyed && item.kind === 'text') {
+            return 'the child at index ' + i + ' is text, which has no key'
+        }
+        if (keyed && item.kind === 'vnode' && !item.keyed) {
+            return 'the child at index ' + i + ' has no key'
+        }
+    }
+    return null
 }
 
 export interface Options {
@@ -118,11 +348,9 @@ export default (options?: Options) => {
 
             currentSourceFile = sourceFile
             helperIdentifiers = {}
-            context['createFragment'] = false
-            context['createVNode'] = false
-            context['createComponentVNode'] = false
-            context['createTextVNode'] = false
-            context['normalizeProps'] = false
+            for (let i = 0; i < POSSIBLE_IMPORTS_TO_ADD.length; i++) {
+                context[POSSIBLE_IMPORTS_TO_ADD[i]] = false
+            }
 
             const newSourceFile = visitEachChild(sourceFile, visitor, context)
 
@@ -220,17 +448,7 @@ export default (options?: Options) => {
         }
 
         function isJsx(node) {
-            while (
-                node.kind === SyntaxKind.ParenthesizedExpression ||
-                node.kind === SyntaxKind.PartiallyEmittedExpression ||
-                node.kind === SyntaxKind.AsExpression ||
-                node.kind === SyntaxKind.SatisfiesExpression ||
-                node.kind === SyntaxKind.NonNullExpression ||
-                node.kind === SyntaxKind.TypeAssertionExpression
-            ) {
-                node = node.expression
-            }
-            return node.kind === SyntaxKind.JsxElement || node.kind === SyntaxKind.JsxSelfClosingElement || node.kind === SyntaxKind.JsxFragment
+            return isJsxNode(skipOuterExpressions(node))
         }
 
         /*
@@ -281,7 +499,7 @@ export default (options?: Options) => {
             return rest.length ? factory.createCallExpression(factory.createPropertyAccessExpression(first, 'concat'), undefined, rest) : first
         }
 
-        function getImportSpecifier(name: 'createFragment' | 'createVNode' | 'createComponentVNode' | 'createTextVNode' | 'normalizeProps'): Expression {
+        function getImportSpecifier(name: Helper): Expression {
             return helperIdentifiers[name] || (helperIdentifiers[name] = factory.createIdentifier(name))
         }
 
@@ -358,27 +576,52 @@ export default (options?: Options) => {
             return createTextVNodeCall(vChildren)
         }
 
-        // createTextVNode("text") maps to the JSX text in source maps, like the string literal it wraps.
-        // The import is added with the first call, so that children without text do not import createTextVNode.
+        // newTextVNode("text") maps to the JSX text in source maps, like the string literal it wraps.
+        // The import is added with the first call, so that children without text do not import newTextVNode.
         function createTextVNodeCall(text: Expression) {
-            context['createTextVNode'] = true
+            context['newTextVNode'] = true
 
-            const call = factory.createCallExpression(getImportSpecifier('createTextVNode'), [], [text])
+            const call = factory.createCallExpression(getImportSpecifier('newTextVNode'), [], [text])
 
             return sourceMaps ? setSourceMapRange(call, getSourceMapRange(text)) : call
         }
 
-        function createFragmentVNodeArgs(children, childFlags, key?) {
-            const args = [];
-            const hasChildren = !isNodeNull(children);
-            const hasChildFlags =
-                hasChildren && childFlags !== ChildFlags.HasInvalidChildren;
-            const hasKey = !isNodeNull(key);
+        /*
+         * The deprecated createFragment(children, childFlags, key) of a $ChildFlag expression. The expression declares
+         * the shape of the children at runtime, so they are passed as written like on elements: a dynamic child in an
+         * array would only work with UnknownChildren.
+         */
+        function createFragmentVNodeArgs(children, childFlags: Expression, key?) {
+            const args = []
+            const hasChildren = !isNodeNull(children)
+            const hasKey = !isNodeNull(key)
+
+            if (hasChildren) {
+                args.push(children, childFlags)
+            } else if (hasKey) {
+                args.push(factory.createNull(), factory.createNumericLiteral(ChildFlags.HasInvalidChildren + ''))
+            }
+
+            if (hasKey) {
+                args.push(key)
+            }
+
+            return args
+        }
+
+        /*
+         * newFragment(flags, children, key), the flags are VNodeFlags.Fragment and the child bit. Children whose shape
+         * $ChildFlag declares are passed as written, like createFragment does for a $ChildFlag expression.
+         */
+        function newFragmentArgs(children, childFlags: number, key?, declaredChildFlags = false) {
+            const hasChildren = !isNodeNull(children)
+            const hasKey = !isNodeNull(key)
+            // A fragment without children gets an empty text vNode at runtime, like one that has invalid children
+            const args: Expression[] = [factory.createNumericLiteral((VNodeFlags.Fragment | childBits[hasChildren ? childFlags : ChildFlags.HasInvalidChildren]) + '')]
 
             if (hasChildren) {
                 if (
-                    // A $ChildFlag expression declares the shape of the children at runtime, they are passed as written
-                    typeof childFlags !== 'number' ||
+                    declaredChildFlags ||
                     childFlags === ChildFlags.HasVNodeChildren ||
                     childFlags === ChildFlags.HasNonKeyedChildren ||
                     childFlags === ChildFlags.HasKeyedChildren ||
@@ -389,18 +632,8 @@ export default (options?: Options) => {
                 } else {
                     args.push(factory.createArrayLiteralExpression([children]))
                 }
-            } else if (hasChildFlags || hasKey) {
-                args.push(factory.createNull())
-            }
-
-            if (hasChildFlags) {
-                args.push(
-                    typeof childFlags === 'number'
-                        ? factory.createNumericLiteral(childFlags + '')
-                        : childFlags
-                )
             } else if (hasKey) {
-                args.push(factory.createNumericLiteral(ChildFlags.HasInvalidChildren + ''))
+                args.push(factory.createNull())
             }
 
             if (hasKey) {
@@ -433,12 +666,12 @@ export default (options?: Options) => {
             }
 
             vChildren = downlevelSpreadChildren(vChildren)
-            context['createFragment'] = true
+            context['newFragment'] = true
 
             return factory.createCallExpression(
-                getImportSpecifier('createFragment'),
+                getImportSpecifier('newFragment'),
                 [],
-                createFragmentVNodeArgs(vChildren, childFlags)
+                newFragmentArgs(vChildren, childFlags)
             )
         }
 
@@ -469,8 +702,14 @@ export default (options?: Options) => {
                 )
             }
 
-            if (vProps.flagProps !== null && uselessFlags !== 'off') {
-                checkFlags(vProps.flagProps, vType.vNodeType, childrenResults, vProps.propChildren)
+            if (vProps.flagProps !== null) {
+                // Components get their children in props, so child flags do not apply to them
+                if (vType.vNodeType !== TYPE_COMPONENT) {
+                    checkChildFlagShape(vProps.flagProps, children, vProps.childrenProp !== null, vProps.propChildren)
+                }
+                if (uselessFlags !== 'off') {
+                    checkFlags(vProps.flagProps, vType.vNodeType, childrenResults, vProps.propChildren)
+                }
             }
 
             let childFlags = ChildFlags.HasInvalidChildren
@@ -481,9 +720,6 @@ export default (options?: Options) => {
             // A single Fragment child that $HasTextChildren declares as text, which goes in an array like a static one
             let singleTextChild = false
 
-            if (vProps.hasReCreateFlag) {
-                flags = flags | VNodeFlags.ReCreate
-            }
             if (vProps.contentEditable) {
                 flags = flags | VNodeFlags.ContentEditable
             }
@@ -608,9 +844,17 @@ export default (options?: Options) => {
                 childrenResults.requiresNormalization &&
                 !vProps.childrenKnown
 
+            // A $ChildFlag expression is only known at runtime, the deprecated createVNode and createFragment convert it
+            let runtimeChildFlags: Expression | null = null
+
             if (vProps.childFlags) {
-                // If $ChildFlag is provided it is runtime dependant
-                childFlags = vProps.childFlags
+                const value = getNumericValue(vProps.childFlags)
+
+                if (value !== null && hasOwn(childBits, value + '')) {
+                    childFlags = value
+                } else {
+                    runtimeChildFlags = vProps.childFlags
+                }
             } else {
                 childFlags = willNormalizeChildren
                     ? ChildFlags.UnknownChildren
@@ -630,34 +874,51 @@ export default (options?: Options) => {
 
             if (vType.vNodeType === TYPE_COMPONENT) {
                 createVNodeCall = factory.createCallExpression(
-                    getImportSpecifier('createComponentVNode'),
+                    getImportSpecifier('newComponentVNode'),
                     [],
                     createComponentVNodeArgs(
-                        vProps.flagsOverride || flags,
+                        // Flags of a known component type include HasInvalidChildren, ComponentUnknown is replaced at runtime
+                        vProps.flagsOverride ? packFlags(vProps.flagsOverride, VNodeFlags.HasInvalidChildren) : flags,
                         vType.type,
                         vProps.props,
                         vProps.key,
                         vProps.ref
                     )
                 )
-                context['createComponentVNode'] = true
+                context['newComponentVNode'] = true
             } else if (vType.vNodeType === TYPE_ELEMENT) {
-                createVNodeCall = factory.createCallExpression(
-                    getImportSpecifier('createVNode'),
-                    [],
-                    createVNodeArgs(
-                        vProps.flagsOverride || flags,
-                        vType.type,
-                        vProps.className,
-                        vChildren,
-                        childFlags,
-                        vProps.props,
-                        vProps.key,
-                        vProps.ref,
-                        context
+                if (runtimeChildFlags) {
+                    createVNodeCall = factory.createCallExpression(
+                        getImportSpecifier('createVNode'),
+                        [],
+                        createVNodeArgs(
+                            vProps.flagsOverride || flags,
+                            vType.type,
+                            vProps.className,
+                            vChildren,
+                            runtimeChildFlags,
+                            vProps.props,
+                            vProps.key,
+                            vProps.ref
+                        )
                     )
-                )
-                context['createVNode'] = true
+                    context['createVNode'] = true
+                } else {
+                    createVNodeCall = factory.createCallExpression(
+                        getImportSpecifier('newVNode'),
+                        [],
+                        newVNodeArgs(
+                            packFlags(vProps.flagsOverride || flags, childBits[childFlags]),
+                            vType.type,
+                            vProps.className,
+                            vChildren,
+                            vProps.props,
+                            vProps.key,
+                            vProps.ref
+                        )
+                    )
+                    context['newVNode'] = true
+                }
             } else if (vType.vNodeType === TYPE_FRAGMENT) {
                 if (
                     singleTextChild ||
@@ -665,12 +926,21 @@ export default (options?: Options) => {
                 ) {
                     vChildren = factory.createArrayLiteralExpression([vChildren])
                 }
-                createVNodeCall = factory.createCallExpression(
-                    getImportSpecifier('createFragment'),
-                    [],
-                    createFragmentVNodeArgs(vChildren, childFlags, vProps.key)
-                )
-                context['createFragment'] = true
+                if (runtimeChildFlags) {
+                    createVNodeCall = factory.createCallExpression(
+                        getImportSpecifier('createFragment'),
+                        [],
+                        createFragmentVNodeArgs(vChildren, runtimeChildFlags, vProps.key)
+                    )
+                    context['createFragment'] = true
+                } else {
+                    createVNodeCall = factory.createCallExpression(
+                        getImportSpecifier('newFragment'),
+                        [],
+                        newFragmentArgs(vChildren, childFlags, vProps.key, vProps.childFlags !== null)
+                    )
+                    context['newFragment'] = true
+                }
             }
 
             // The generated calls map to the JSX in source maps, their arguments are synthesized
@@ -749,7 +1019,6 @@ export default (options?: Options) => {
             let hasNonKeyedChildren = false
             let childrenKnown = false
             let needsNormalization = false
-            let hasReCreateFlag = false
             let flagsOverride = null
             let propChildren = null
             let childrenProp = null
@@ -865,18 +1134,20 @@ export default (options?: Options) => {
                                 childrenKnown = true
                                 break
                             case 'ref':
-                                ref = initializer ? getValue(initializer, visitor, factory) : null
+                                // A valueless ref would be true, which is neither a callback nor a ref object
+                                if (!initializer) {
+                                    throw new Error(withCodeFrame(astProp, 'Please provide an explicit ref value. Using "ref" as a shorthand for "ref={true}" is not allowed.'))
+                                }
+                                ref = getValue(initializer, visitor, factory)
                                 break
                             case 'key':
                                 if (!initializer) {
-                                    throw createError(astProp, 'Please provide an explicit key value. Using "key" as a shorthand for "key={true}" is not allowed.')
+                                    throw new Error(withCodeFrame(astProp, 'Please provide an explicit key value. Using "key" as a shorthand for "key={true}" is not allowed.'))
                                 }
                                 key = getValue(initializer, visitor, factory)
                                 break
                             case PROP_ReCreate:
-                                flagProps = addFlagProp(flagProps, astProp)
-                                hasReCreateFlag = true
-                                break
+                                throw new Error(withCodeFrame(astProp, PROP_ReCreate + ' has been removed in Inferno 10. To re-create the element, change its key instead, for example key={version}.'))
                             case PROP_Flags:
                                 flagProps = addFlagProp(flagProps, astProp)
                                 // Replaces the flags of an element or a component, e.g. $Flags={VNodeFlags.InputElement}
@@ -922,7 +1193,6 @@ export default (options?: Options) => {
                 childrenKnown: childrenKnown,
                 className: className == null ? null : className,
                 childFlags: childFlags,
-                hasReCreateFlag: hasReCreateFlag,
                 flagsOverride: flagsOverride,
                 needsNormalization: needsNormalization,
                 contentEditable: contentEditable,
@@ -983,6 +1253,55 @@ export default (options?: Options) => {
             return !isFragment && isJsx(expression)
         }
 
+        /*
+         * Throws for the child flag that the vNode uses when the JSX shows that its children cannot have the declared shape,
+         * because Inferno would render them wrong or throw in development.
+         */
+        function checkChildFlagShape(flagProps: JsxAttribute[], astChildren: NodeArray<JsxChild> | undefined, hasChildrenProp: boolean, propChildren) {
+            let winner: JsxAttribute | null = null
+
+            for (let i = 0; i < flagProps.length; i++) {
+                const index = CHILD_FLAG_PROPS.indexOf(getPropertyName(flagProps[i]))
+
+                if (index !== -1 && (winner === null || index < CHILD_FLAG_PROPS.indexOf(getPropertyName(winner)))) {
+                    winner = flagProps[i]
+                }
+            }
+            if (winner === null) {
+                return
+            }
+            let label: string = getPropertyName(winner)
+            let childFlags: number
+
+            if (label === PROP_ChildFlag) {
+                const initializer = winner.initializer
+                // An expression is only known at runtime
+                const value = initializer && initializer.kind === SyntaxKind.JsxExpression && initializer.expression
+                    ? getNumericValue(initializer.expression)
+                    : null
+
+                if (value === null) {
+                    return
+                }
+                childFlags = value
+                if (!hasOwn(CHILD_FLAG_NAMES, value + '')) {
+                    throw new Error(withCodeFrame(winner, PROP_ChildFlag + '={' + value + '} is not a ChildFlags value. Use 0 (UnknownChildren), 1 (HasInvalidChildren), ' +
+                        '2 (HasVNodeChildren), 4 (HasNonKeyedChildren), 8 (HasKeyedChildren) or 16 (HasTextChildren).'))
+                }
+                if (childFlags === ChildFlags.UnknownChildren) {
+                    return
+                }
+                label = PROP_ChildFlag + '={' + childFlags + '} (' + CHILD_FLAG_NAMES[childFlags] + ')'
+            } else {
+                childFlags = CHILD_FLAG_OF_PROP[label]
+            }
+            const mismatch = childShapeMismatch(childFlags, childrenShape(astChildren, hasChildrenProp, propChildren))
+
+            if (mismatch !== null) {
+                throw new Error(withCodeFrame(winner, label + ' needs ' + CHILD_FLAG_NEEDS[childFlags] + ', but ' + mismatch + '.'))
+            }
+        }
+
         // Warnings go to the console with the location and the code of the flag, as TypeScript has no API for them
         function reportUselessFlag(astProp: JsxAttribute, message: string) {
             if (uselessFlags === 'error') {
@@ -993,19 +1312,14 @@ export default (options?: Options) => {
 
         // Reports the flags that cannot change the compiled vNode; each flag is reported once, for its first reason
         function checkFlags(flagProps: JsxAttribute[], vNodeType: number, childrenResults, propChildren) {
-            let hasFlagsOverride = false
             let winner: string | null = null
 
             for (let i = 0; i < flagProps.length; i++) {
                 const flagName = getPropertyName(flagProps[i])
 
-                if (flagName === PROP_Flags) {
-                    hasFlagsOverride = true
-                } else if (flagName !== PROP_ReCreate) {
-                    // The child flag that the compiled vNode uses when the children are dynamic
-                    if (winner === null || CHILD_FLAG_PROPS.indexOf(flagName) < CHILD_FLAG_PROPS.indexOf(winner)) {
-                        winner = flagName
-                    }
+                // The child flag that the compiled vNode uses when the children are dynamic
+                if (flagName !== PROP_Flags && (winner === null || CHILD_FLAG_PROPS.indexOf(flagName) < CHILD_FLAG_PROPS.indexOf(winner))) {
+                    winner = flagName
                 }
             }
             const shapeKnown = winner !== null && vNodeType !== TYPE_COMPONENT && isChildShapeKnown(childrenResults, propChildren, vNodeType === TYPE_FRAGMENT)
@@ -1015,11 +1329,9 @@ export default (options?: Options) => {
                 const name = getPropertyName(astProp)
                 let message: string | null = null
 
-                if (name === PROP_Flags || name === PROP_ReCreate) {
+                if (name === PROP_Flags) {
                     if (vNodeType === TYPE_FRAGMENT) {
                         message = name + ' has no effect on Fragments.'
-                    } else if (name === PROP_ReCreate && hasFlagsOverride) {
-                        message = PROP_ReCreate + ' is ignored because ' + PROP_Flags + ' replaces the vNode flags. Include ReCreate (' + VNodeFlags.ReCreate + ') in ' + PROP_Flags + ' instead.'
                     }
                 } else if (vNodeType === TYPE_COMPONENT) {
                     message = name + ' has no effect on components. Their children are passed in props.children.'
@@ -1137,53 +1449,86 @@ export default (options?: Options) => {
             return args
         }
 
-        function createVNodeArgs(
-            flags,
-            type,
-            className,
-            children,
-            childFlags,
-            props,
-            key,
-            ref,
-            context
-        ) {
-            let args = []
-            let hasClassName = !isNodeNull(className)
-            let hasChildren = !isNodeNull(children)
-            let hasChildFlags = childFlags !== ChildFlags.HasInvalidChildren
-            let hasProps = props.length > 0
-            let hasKey = !isNodeNull(key)
-            let hasRef = !isNodeNull(ref)
-            args.push(typeof flags === 'number' ? factory.createNumericLiteral(flags + '') : flags)
-            args.push(type)
+        // The value of a numeric literal, e.g. of $Flags={9} or $ChildFlag={16}, other expressions are only known at runtime
+        function getNumericValue(node: Expression): number | null {
+            // Parentheses, e.g. $Flags={(9)}, are skipped like Babel's parser drops them
+            while (node.kind === SyntaxKind.ParenthesizedExpression) {
+                node = (<ParenthesizedExpression>node).expression
+            }
+            return node.kind === SyntaxKind.NumericLiteral ? Number((<ts.NumericLiteral>node).text) : null
+        }
+
+        /*
+         * The flags of newVNode, newComponentVNode and newFragment hold the child bit. A number is folded into one literal,
+         * an expression like the value of $Flags gets the bit ORed in.
+         */
+        function packFlags(flags: number | Expression, childBit: number): Expression {
+            if (typeof flags === 'number') {
+                return factory.createNumericLiteral((flags | childBit) + '')
+            }
+            const value = getNumericValue(flags)
+
+            if (value !== null) {
+                return factory.createNumericLiteral((value | childBit) + '')
+            }
+            return childBit === 0 ? flags : factory.createBitwiseOr(flags, factory.createNumericLiteral(childBit + ''))
+        }
+
+        // newVNode(flags, type, className, children, props, key, ref) has no childFlags argument, the flags hold the child bit
+        function newVNodeArgs(flags: Expression, type, className, children, props: Expression[], key, ref) {
+            const args = [flags, type]
+            const hasClassName = !isNodeNull(className)
+            const hasChildren = !isNodeNull(children)
+            const hasProps = props.length > 0
+            const hasKey = !isNodeNull(key)
+            const hasRef = !isNodeNull(ref)
 
             if (hasClassName) {
                 args.push(className)
-            } else if (hasChildren || hasChildFlags || hasProps || hasKey || hasRef) {
+            } else if (hasChildren || hasProps || hasKey || hasRef) {
                 args.push(factory.createNull())
             }
 
             if (hasChildren) {
                 args.push(children)
-            } else if (hasChildFlags || hasProps || hasKey || hasRef) {
+            } else if (hasProps || hasKey || hasRef) {
                 args.push(factory.createNull())
             }
 
-            if (hasChildFlags) {
-                args.push(
-                    typeof childFlags === 'number'
-                        ? factory.createNumericLiteral(childFlags + '')
-                        : childFlags
-                )
-            } else if (hasProps || hasKey || hasRef) {
-                args.push(factory.createNumericLiteral(ChildFlags.HasInvalidChildren + ''))
+            if (hasProps) {
+                args.push(props.length === 1 ? props[0] : createAssignHelper(context, props))
+            } else if (hasKey || hasRef) {
+                args.push(factory.createNull())
             }
 
+            if (hasKey) {
+                args.push(key)
+            } else if (hasRef) {
+                args.push(factory.createNull())
+            }
+
+            if (hasRef) {
+                args.push(ref)
+            }
+
+            return args
+        }
+
+        // The deprecated createVNode(flags, type, className, children, childFlags, props, key, ref) of a $ChildFlag expression
+        function createVNodeArgs(flags: number | Expression, type, className, children, childFlags: Expression, props: Expression[], key, ref) {
+            const args = [
+                typeof flags === 'number' ? factory.createNumericLiteral(flags + '') : flags,
+                type,
+                isNodeNull(className) ? factory.createNull() : className,
+                isNodeNull(children) ? factory.createNull() : children,
+                childFlags
+            ]
+            const hasProps = props.length > 0
+            const hasKey = !isNodeNull(key)
+            const hasRef = !isNodeNull(ref)
+
             if (hasProps) {
-                props.length === 1
-                    ? args.push(props[0])
-                    : args.push(createAssignHelper(context, props))
+                args.push(props.length === 1 ? props[0] : createAssignHelper(context, props))
             } else if (hasKey || hasRef) {
                 args.push(factory.createNull())
             }

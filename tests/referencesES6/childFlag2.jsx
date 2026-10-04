@@ -1,2 +1,2 @@
-import { createVNode } from "inferno";
-createVNode(1, "img", null, "foobar", 1);
+import { newVNode } from "inferno";
+newVNode(17, "img", null, foobar);

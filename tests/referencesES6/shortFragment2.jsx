@@ -1,2 +1,2 @@
-import { createFragment } from "inferno";
-createFragment(magic, 0);
+import { newFragment } from "inferno";
+newFragment(256, magic);

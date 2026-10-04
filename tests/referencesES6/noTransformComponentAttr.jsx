@@ -1,2 +1,2 @@
-import { createComponentVNode } from "inferno";
-createComponentVNode(2, Foobar, { "strokeWidth": "1px", "fillOpacity": "1" });
+import { newComponentVNode } from "inferno";
+newComponentVNode(0, Foobar, { "strokeWidth": "1px", "fillOpacity": "1" });

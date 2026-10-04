@@ -7,12 +7,13 @@ import {transform} from './helpers'
 import svgAttributes from '../../src/utils/svgAttributes'
 import {attributeTransforms, lowerCaseAttributes} from './attributeTables'
 
+// An element without children, so its flags have the HasInvalidChildren bit (16)
 function elementProps(flags: number, tag: string, name: string) {
-    return `createVNode(${flags}, "${tag}", null, null, 1, { "${name}": "v" });`
+    return `newVNode(${flags | 16}, "${tag}", null, null, { "${name}": "v" });`
 }
 
 function componentProps(name: string) {
-    return `createComponentVNode(2, Foo, { "${name}": "v" });`
+    return `newComponentVNode(0, Foo, { "${name}": "v" });`
 }
 
 describe('Attribute mapping tables', () => {
@@ -31,7 +32,7 @@ describe('Attribute mapping tables', () => {
     describe('svgAttributes', () => {
         for (const name of Object.keys(svgAttributes)) {
             it(`Should map ${name} to ${svgAttributes[name]} on elements`, () => {
-                assert.equal(transform(`<rect ${name}="v" />`), elementProps(32, 'rect', svgAttributes[name]))
+                assert.equal(transform(`<rect ${name}="v" />`), elementProps(64, 'rect', svgAttributes[name]))
             })
 
             it(`Should keep ${name} on components`, () => {

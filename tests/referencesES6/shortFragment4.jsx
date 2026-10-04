@@ -1,2 +1,2 @@
-import { createFragment, createVNode } from "inferno";
-createFragment([createFragment([createVNode(1, "div", null, "Text", 16)], 4)], 4);
+import { newVNode, newFragment } from "inferno";
+newFragment(260, [newFragment(260, [newVNode(3, "div", null, "Text")])]);

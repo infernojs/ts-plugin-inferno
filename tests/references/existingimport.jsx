@@ -15,8 +15,8 @@ var __extends = (this && this.__extends) || (function () {
     };
 })();
 var $inferno = require("inferno");
-var createTextVNode = $inferno.createTextVNode;
-var createVNode = $inferno.createVNode;
+var newVNode = $inferno.newVNode;
+var newTextVNode = $inferno.newTextVNode;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CustomerImportView = void 0;
 var inferno_1 = require("inferno");
@@ -26,7 +26,7 @@ var CustomerImportView = /** @class */ (function (_super) {
         return _super !== null && _super.apply(this, arguments) || this;
     }
     CustomerImportView.prototype.render = function () {
-        return (createVNode(1, "div", "overview", [createVNode(1, "div", "topbanner", createVNode(1, "div", "topheader", createVNode(1, "div", "overview-topheader-section", createVNode(1, "h1", null, "Import data", 16), 2), 2), 2), createTextVNode("text"), createVNode(1, "div", "viewcontent")], 4));
+        return (newVNode(5, "div", "overview", [newVNode(9, "div", "topbanner", newVNode(9, "div", "topheader", newVNode(9, "div", "overview-topheader-section", newVNode(3, "h1", null, "Import data")))), newTextVNode("text"), newVNode(17, "div", "viewcontent")]));
     };
     return CustomerImportView;
 }(inferno_1.Component));

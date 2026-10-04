@@ -1,3 +1,3 @@
 var $inferno = require("inferno");
-var createComponentVNode = $inferno.createComponentVNode;
-createComponentVNode(2, FunctionalComponent, null, null, { "onComponentDidMount": mounted });
+var newComponentVNode = $inferno.newComponentVNode;
+newComponentVNode(0, FunctionalComponent, null, null, { "onComponentDidMount": mounted });

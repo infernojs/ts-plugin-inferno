@@ -1,5 +1,5 @@
-import { createVNode } from "inferno";
-createVNode(1, "div", null, false && [
-    createVNode(1, "div"),
-    createVNode(1, "span")
-], 0);
+import { newVNode } from "inferno";
+newVNode(1, "div", null, false && [
+    newVNode(17, "div"),
+    newVNode(17, "span")
+]);

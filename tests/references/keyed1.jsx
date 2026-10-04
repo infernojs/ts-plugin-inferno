@@ -1,4 +1,4 @@
 var $inferno = require("inferno");
-var createComponentVNode = $inferno.createComponentVNode;
-var createVNode = $inferno.createVNode;
-createVNode(1, "div", null, [createComponentVNode(2, FooBar, null, "foo"), createVNode(1, "div", null, "1", 16, null, "1")], 8);
+var newVNode = $inferno.newVNode;
+var newComponentVNode = $inferno.newComponentVNode;
+newVNode(33, "div", null, [newComponentVNode(0, FooBar, null, "foo"), newVNode(3, "div", null, "1", null, "1")]);

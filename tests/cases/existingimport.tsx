@@ -1,4 +1,4 @@
-import {Component, createVNode} from 'inferno';
+import {Component, newVNode} from 'inferno';
 
 
 export class CustomerImportView extends Component {

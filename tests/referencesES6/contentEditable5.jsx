@@ -1,2 +1,2 @@
-import { createVNode } from "inferno";
-createVNode(4097, "div", null, null, 1, { "contentEditable": "true" });
+import { newVNode } from "inferno";
+newVNode(131089, "div", null, null, { "contentEditable": "true" });

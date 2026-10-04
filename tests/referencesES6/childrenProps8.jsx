@@ -1,2 +1,2 @@
-import { createVNode, createComponentVNode } from "inferno";
-createComponentVNode(2, Com, { "children": createVNode(1, "div", null, "1", 16) });
+import { newVNode, newComponentVNode } from "inferno";
+newComponentVNode(0, Com, { "children": newVNode(3, "div", null, "1") });

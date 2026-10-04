@@ -1,3 +1,3 @@
 var $inferno = require("inferno");
-var createVNode = $inferno.createVNode;
-createVNode(2049, "div");
+var newVNode = $inferno.newVNode;
+newVNode(17, "div", null, null, null, version);

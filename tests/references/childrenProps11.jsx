@@ -1,3 +1,3 @@
 var $inferno = require("inferno");
-var createComponentVNode = $inferno.createComponentVNode;
-createComponentVNode(2, Context.Provider, { "children": "test" });
+var newComponentVNode = $inferno.newComponentVNode;
+newComponentVNode(0, Context.Provider, { "children": "test" });

@@ -1,2 +1,2 @@
-import { createComponentVNode } from "inferno";
-createComponentVNode(2, Components.Unknown, { "children": "1" });
+import { newComponentVNode } from "inferno";
+newComponentVNode(0, Components.Unknown, { "children": "1" });

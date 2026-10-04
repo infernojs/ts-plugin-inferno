@@ -1,3 +1,3 @@
 var $inferno = require("inferno");
-var createVNode = $inferno.createVNode;
-createVNode(128, "textarea", null, "foobar", 16);
+var newVNode = $inferno.newVNode;
+newVNode(2050, "textarea", null, "foobar");

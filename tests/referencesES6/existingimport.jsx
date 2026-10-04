@@ -1,6 +1,6 @@
-import { Component, createVNode, createTextVNode } from 'inferno';
+import { Component, newVNode, newTextVNode } from 'inferno';
 export class CustomerImportView extends Component {
     render() {
-        return (createVNode(1, "div", "overview", [createVNode(1, "div", "topbanner", createVNode(1, "div", "topheader", createVNode(1, "div", "overview-topheader-section", createVNode(1, "h1", null, "Import data", 16), 2), 2), 2), createTextVNode("text"), createVNode(1, "div", "viewcontent")], 4));
+        return (newVNode(5, "div", "overview", [newVNode(9, "div", "topbanner", newVNode(9, "div", "topheader", newVNode(9, "div", "overview-topheader-section", newVNode(3, "h1", null, "Import data")))), newTextVNode("text"), newVNode(17, "div", "viewcontent")]));
     }
 }

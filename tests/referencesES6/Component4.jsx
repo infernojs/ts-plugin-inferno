@@ -1,2 +1,2 @@
-import { createComponentVNode } from "inferno";
-createComponentVNode(2, Context.Provider);
+import { newComponentVNode } from "inferno";
+newComponentVNode(0, Context.Provider);

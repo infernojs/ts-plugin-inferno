@@ -1,1 +1,1 @@
-<div $HasVNodeChildren>text</div>
+<div $HasVNodeChildren><span>text</span></div>

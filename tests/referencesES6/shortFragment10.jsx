@@ -1,2 +1,2 @@
-import { createFragment, createTextVNode } from "inferno";
-createFragment([createTextVNode("Test")], 4);
+import { newFragment, newTextVNode } from "inferno";
+newFragment(260, [newTextVNode("Test")]);

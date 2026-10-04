@@ -6,9 +6,19 @@ Typescript JSX transformer for [InfernoJS](https://github.com/infernojs/inferno)
 
 This is a plugin for Typescript compiler that compiles Typescript JSX syntax ( TSX ) directly to Inferno API to avoid createElement method calls.
 
+## Inferno versions
+
+Version 10 of the plugin compiles JSX for Inferno 10. It calls `newVNode`, `newComponentVNode`, `newFragment` and `newTextVNode`, and writes the flags of each vNode, including the shape of its children, as one number. For example `<div>Hello</div>` becomes `newVNode(3, "div", null, "Hello")`: `HtmlElement` (1) and `HasTextChildren` (2).
+
+For Inferno 9 and older, use version 7 of the plugin. Inferno 10 numbers its vNode flags differently, so code compiled by version 7 has to be compiled again for Inferno 10.
+
+From version 10 on, the major version of the plugin matches the major version of Inferno: use plugin 10.x with Inferno 10.x, plugin 11.x with Inferno 11.x, and so on. See the [Inferno 10 migration guide](https://github.com/infernojs/inferno/blob/master/documentation/v10-migration.md).
+
 # Install
 
 `yarn add -D ts-plugin-inferno typescript`
+
+The plugin needs `inferno` 10 in the project (a peer dependency).
 
 ## General usage
 
@@ -25,7 +35,7 @@ options: {
 
 It's different depending on what bundler you're using. Please check the examples folder.
 
-The plugin imports the Inferno functions that the compiled JSX calls (`createVNode`, `createComponentVNode`, ...) in the module format of the output.
+The plugin imports the Inferno functions that the compiled JSX calls (`newVNode`, `newComponentVNode`, ...) in the module format of the output.
 A file without imports and exports is a script (unless `moduleDetection` is `"force"`), which TypeScript emits without a module wrapper, so the plugin requires them there with `require("inferno")`: an import declaration would turn the script into a module.
 
 ## Options
@@ -67,11 +77,65 @@ The plugin provides a few compile time flags that can be used to optimize an Inf
 <div $ChildFlag={expression} /> - Defines the children shape at runtime, see ChildFlags in inferno-vnode-flags
 
 // Functional flags
-<div $ReCreate /> - Always remove and add the node, it can be used to replace key={Math.random()}
 <div $Flags={expression} /> - Replaces the vNode flags, see VNodeFlags in inferno-vnode-flags
 ```
 
 `$ChildFlag` and `$Flags` need a value, a valueless one is a compile error.
+
+`$ReCreate` has been removed in Inferno 10, and the plugin throws an error for it. To re-create an element, change its key instead, for example `key={version}`: Inferno unmounts the old element and mounts a new one when the key changes.
+
+A `$ChildFlag` written as a ChildFlags number, e.g. `$ChildFlag={16}` (HasTextChildren), is packed into the flags like the other child flags. Any other `$ChildFlag` expression is only known at runtime, so that element is compiled to the deprecated `createVNode` (or `createFragment`), which converts the value.
+
+`$Flags={expression}` replaces the flags of the element; the plugin still adds the child bit of the children, and `HasInvalidChildren` (16) for a component.
+
+The flags the plugin writes, from `VNodeFlags` of inferno-vnode-flags 10:
+
+| Flag | Value | Written for |
+| --- | --- | --- |
+| `ComponentUnknown` | 0 | components; Inferno sets the component type at runtime |
+| `HtmlElement` | 1 | elements |
+| `HasTextChildren` | 2 | one text child |
+| `HasNonKeyedChildren` | 4 | an array of children without keys |
+| `HasVNodeChildren` | 8 | one element or component child |
+| `HasInvalidChildren` | 16 | no children |
+| `HasKeyedChildren` | 32 | an array of children that all have a key |
+| `SvgElement` | 64 | SVG elements |
+| `Fragment` | 256 | Fragments |
+| `InputElement` | 512 | `<input>` |
+| `TextareaElement` | 2048 | `<textarea>` |
+| `SelectElement` | 4096 | `<select>` |
+| `ContentEditable` | 131072 | elements and components with a `contentEditable` prop |
+
+Children that need normalizing, such as `{expression}`, get no child bit, e.g. `<div>{a}</div>` becomes `newVNode(1, "div", null, a)`.
+
+### Invalid flags
+
+When the JSX shows that the children cannot have the shape a child flag declares, the plugin throws an error that points at the flag. Inferno would otherwise render the children wrong or throw in development. For example:
+
+```tsx
+// An array is not a single vNode
+<div $HasVNodeChildren><a/><b/></div>
+<div $HasVNodeChildren>{[a, b]}</div>
+
+// Text is not a vNode, and an element is not text
+<div $HasVNodeChildren>text</div>
+<div $HasTextChildren><a/></div>
+
+// One element is not an array, and keyed children need keys
+<ul $HasNonKeyedChildren><li/></ul>
+<ul $HasKeyedChildren><li key="1"/><li/></ul>
+
+// Not a ChildFlags value
+<div $ChildFlag={3}>{a}</div>
+```
+
+```
+/project/src/App.tsx(1,6): $HasVNodeChildren needs one element or component child, but there are 2 children.
+> 1 | <div $HasVNodeChildren><a/><b/></div>
+    |      ^^^^^^^^^^^^^^^^^
+```
+
+Dynamic children such as `{expression}` are not checked, and neither are the children of components. Parentheses and type assertions do not hide a child, e.g. `{<a/> as any}` is an element. The `uselessFlags` option does not change this check.
 
 ### Useless flags
 
@@ -92,11 +156,8 @@ It warns about flags that cannot improve the output:
 // $HasTextChildren, $HasVNodeChildren
 <div $HasKeyedChildren $HasNonKeyedChildren>{items}</div>
 
-// $Flags replaces all the vNode flags, including ReCreate
-<div $ReCreate $Flags={1} />
-
-// Fragments have no vNode flags
-<Fragment $Flags={1} $ReCreate>{items}</Fragment>
+// $Flags has no effect on Fragments
+<Fragment $Flags={1}>{items}</Fragment>
 ```
 
 A warning shows the file, line and column, the reason and the code around the flag:

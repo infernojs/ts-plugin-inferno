@@ -1,2 +1,2 @@
-import { createVNode } from "inferno";
-createVNode(32, "svg", null, createVNode(32, "rect", null, null, 1, { "stroke-width": "1px" }), 2);
+import { newVNode } from "inferno";
+newVNode(72, "svg", null, newVNode(80, "rect", null, null, { "stroke-width": "1px" }));

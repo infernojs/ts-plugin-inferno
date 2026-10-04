@@ -54,30 +54,30 @@ describe('Source maps', function () {
     })
 
     it('Should map an element call to its opening tag', function () {
-        assert.deepEqual(originalPosition(compile(), 'createVNode(1, "div"'), {line: 4, column: 2})
+        assert.deepEqual(originalPosition(compile(), 'newVNode(5, "div"'), {line: 4, column: 2})
     })
 
     it('Should map a component call to its opening tag', function () {
-        assert.deepEqual(originalPosition(compile(), 'createComponentVNode(2'), {line: 5, column: 4})
+        assert.deepEqual(originalPosition(compile(), 'newComponentVNode(0'), {line: 5, column: 4})
     })
 
     // Babel maps to the start of the JSX text node, TypeScript skips its leading whitespace
     it('Should map a text vnode to its JSX text', function () {
-        assert.deepEqual(originalPosition(compile(), 'createTextVNode('), {line: 6, column: 4})
+        assert.deepEqual(originalPosition(compile(), 'newTextVNode('), {line: 6, column: 4})
     })
 
     it('Should map a fragment call to its opening tag', function () {
-        assert.deepEqual(originalPosition(compile(), 'createFragment('), {line: 10, column: 2})
+        assert.deepEqual(originalPosition(compile(), 'newFragment('), {line: 10, column: 2})
     })
 
     it('Should map normalizeProps and the call it wraps to the opening tag', function () {
         assert.deepEqual(originalPosition(compile(), 'normalizeProps('), {line: 11, column: 4})
-        assert.deepEqual(originalPosition(compile(), 'createVNode(1, "b"'), {line: 11, column: 4})
+        assert.deepEqual(originalPosition(compile(), 'newVNode(17, "b"'), {line: 11, column: 4})
     })
 
     it('Should map a call that replaces JSX on the same line', function () {
         const result = transpile('import {a} from "b";\nexport const el = <div>{a}</div>;', {sourceMap: true})
 
-        assert.deepEqual(originalPosition(result, 'createVNode('), {line: 2, column: 18})
+        assert.deepEqual(originalPosition(result, 'newVNode('), {line: 2, column: 18})
     })
 })

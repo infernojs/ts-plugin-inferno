@@ -66,7 +66,7 @@ export function handleSystemModules(sourceFile: ts.SourceFile, context: ts.Trans
 
     const setters = getSetters(statements[settersIndex])
     const moduleName = getUniqueName('$inferno', new Set([...declaredNames, ...helpersToAdd]))
-    // function ($inferno) { createVNode = $inferno.createVNode; ... }
+    // function ($inferno) { newVNode = $inferno.newVNode; ... }
     const setter = factory.createFunctionExpression(
         undefined,
         undefined,
@@ -102,7 +102,7 @@ export function handleSystemModules(sourceFile: ts.SourceFile, context: ts.Trans
     const prologueLength = getPrologueLength(statements)
     const updatedStatements = [
         ...statements.slice(0, prologueLength),
-        // var createVNode, createComponentVNode;
+        // var newVNode, newComponentVNode;
         factory.createVariableStatement(undefined, helpersToAdd.map(helper => factory.createVariableDeclaration(helper))),
         ...statements.slice(prologueLength, settersIndex),
         updatedReturn,

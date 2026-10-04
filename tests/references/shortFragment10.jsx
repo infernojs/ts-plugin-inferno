@@ -1,4 +1,4 @@
 var $inferno = require("inferno");
-var createTextVNode = $inferno.createTextVNode;
-var createFragment = $inferno.createFragment;
-createFragment([createTextVNode("Test")], 4);
+var newFragment = $inferno.newFragment;
+var newTextVNode = $inferno.newTextVNode;
+newFragment(260, [newTextVNode("Test")]);
