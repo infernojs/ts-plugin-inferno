@@ -18,7 +18,7 @@ From version 10 on, the major version of the plugin matches the major version of
 
 `yarn add -D ts-plugin-inferno typescript`
 
-The plugin needs `inferno` 10 in the project (a peer dependency).
+The compiled code imports `inferno`, so the project needs `inferno` 10 installed.
 
 ## General usage
 
